@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -g -O -Wall -Wextra -std=c99 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DPROJECT_ROOT=\"$(shell pwd)\" -DUSE_LGPIO_LIB -DRPI -DDEBUG $(shell pkg-config --cflags cairo freetype2)
 # Suppress warnings for third-party Waveshare library  
-WAVESHARE_CFLAGS = -g -O -std=c99 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DUSE_LGPIO_LIB -DRPI -DDEBUG -w
+WAVESHARE_CFLAGS = -g -O -std=c99 -D_GNU_SOURCE -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DUSE_LGPIO_LIB -DRPI -DDEBUG -w
 LIBS = -lcurl -lcjson -lpthread $(shell pkg-config --libs cairo freetype2) -lm -llgpio
 
 # Directories
@@ -12,7 +12,7 @@ WAVESHARE_DIR = lib/e-Paper/RaspberryPi_JetsonNano/c/lib
 
 # Target and source files
 TARGET = $(BUILD_DIR)/dashboard
-SOURCES = main.c weather.c menu.c calendar.c display_stdout.c http.c display_eink.c display_partial.c logging.c
+SOURCES = main.c weather.c menu.c calendar.c display_stdout.c http.c dashboard_render.c display_dashboard.c logging.c
 SRC_FILES = $(addprefix $(SRC_DIR)/, $(SOURCES))
 
 # Waveshare library sources (RPI lgpio configuration)
@@ -20,6 +20,7 @@ WAVESHARE_SOURCES = $(WAVESHARE_DIR)/Config/DEV_Config.c \
                     $(WAVESHARE_DIR)/Config/dev_hardware_SPI.c \
                     $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c \
                     $(WAVESHARE_DIR)/GUI/GUI_Paint.c \
+                    $(WAVESHARE_DIR)/GUI/GUI_BMPfile.c \
                     $(WAVESHARE_DIR)/Fonts/font20.c
 
 OBJECTS = $(addprefix $(BUILD_DIR)/, $(SOURCES:.c=.o)) \
@@ -51,6 +52,9 @@ $(BUILD_DIR)/EPD_7in5_V2.o: $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c
 	$(CC) $(WAVESHARE_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/GUI_Paint.o: $(WAVESHARE_DIR)/GUI/GUI_Paint.c
+	$(CC) $(WAVESHARE_CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/GUI_BMPfile.o: $(WAVESHARE_DIR)/GUI/GUI_BMPfile.c
 	$(CC) $(WAVESHARE_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/font20.o: $(WAVESHARE_DIR)/Fonts/font20.c

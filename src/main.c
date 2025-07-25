@@ -11,8 +11,7 @@
 #include "menu.h"
 #include "calendar.h"
 #include "display_stdout.h"
-#include "display_eink.h"
-#include "display_partial.h"
+#include "display_dashboard.h"
 #include "logging.h"
 
 // Constants
@@ -109,16 +108,16 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
         strcat(update_type, "calendar");
     }
     
-    // Generate PNG for e-ink display
-    const char *temp_png = "dashboard_temp.png";
+    // Generate BMP for e-ink display (works with GUI_ReadBmp)
+    const char *temp_image = "dashboard_temp.bmp";
     
     const WeatherData *weather_ptr = orch->status.weather_available ? &orch->weather_data : NULL;
     const MenuData *menu_ptr = orch->status.menu_available ? &orch->menu_data : NULL;
     const CalendarData *calendar_ptr = orch->status.calendar_available ? &orch->calendar_data : NULL;
     
-    if (generate_dashboard_png(temp_png, date, weather_ptr, menu_ptr, calendar_ptr)) {
-        // Display PNG directly using C library
-        int result = display_png_on_eink(temp_png);
+    if (generate_dashboard_bmp(temp_image, date, weather_ptr, menu_ptr, calendar_ptr)) {
+        // Display image directly using C library
+        int result = display_image_on_eink(temp_image);
         
         if (result == 0) {
             const char *refresh_type = use_fast_refresh ? "fast refresh" : "full refresh";
@@ -127,7 +126,7 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
             LOG_ERROR("❌ Failed to refresh e-ink display");
         }
     } else {
-        LOG_ERROR("❌ Failed to generate PNG for %s display", update_type);
+        LOG_ERROR("❌ Failed to generate image for %s display", update_type);
     }
     
     // Reset all change flags after successful update
@@ -246,9 +245,11 @@ DataOrchestrator* orchestrator_init(int debug) {
     
     LOG_DEBUG("🚀 Orchestrator initialized");
     
-    // Initialize partial display for time updates (only in non-debug mode)
+    // Initialize e-ink hardware and partial display for time updates (only in non-debug mode)
     if (!debug) {
-        if (init_partial_display() != 0) {
+        if (init_eink_hardware() != 0) {
+            LOG_ERROR("⚠️  Failed to initialize e-ink hardware");
+        } else if (init_partial_display() != 0) {
             LOG_ERROR("⚠️  Failed to initialize partial display, time updates will be skipped");
         }
     }
@@ -281,8 +282,9 @@ void orchestrator_free(DataOrchestrator *orch) {
     menu_client_free(orch->menu_client);
     calendar_client_free(orch->calendar_client);
     
-    // Clean up partial display
+    // Clean up partial display and e-ink hardware
     cleanup_partial_display();
+    cleanup_eink_hardware();
     
     // Clean up logging system
     close_logging();
@@ -700,14 +702,14 @@ int orchestrator_run_once(DataOrchestrator *orch, time_t date) {
     const MenuData *menu_ptr = orch->status.menu_available ? &orch->menu_data : NULL;
     const CalendarData *calendar_ptr = orch->status.calendar_available ? &orch->calendar_data : NULL;
     
-    // Debug mode: generate PNG dashboard and save to file
-    LOG_INFO("🖼️  Generating dashboard PNG...");
+    // Debug mode: generate BMP dashboard file for testing
+    LOG_INFO("🖼️  Generating dashboard BMP...");
     
-    const char *png_filename = "dashboard_debug.png";
-    if (generate_dashboard_png(png_filename, date, weather_ptr, menu_ptr, calendar_ptr)) {
-        LOG_INFO("✅ PNG generated: %s", png_filename);
+    const char *bmp_filename = "dashboard_debug.bmp";
+    if (generate_dashboard_bmp(bmp_filename, date, weather_ptr, menu_ptr, calendar_ptr)) {
+        LOG_INFO("✅ BMP generated: %s", bmp_filename);
     } else {
-        LOG_ERROR("❌ Failed to generate PNG");
+        LOG_ERROR("❌ Failed to generate BMP");
     }
     
     return 0;

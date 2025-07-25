@@ -1,8 +1,8 @@
-#ifndef DISPLAY_EINK_H
-#define DISPLAY_EINK_H
+#ifndef DASHBOARD_RENDER_H
+#define DASHBOARD_RENDER_H
 
+#include <cairo.h>
 #include <time.h>
-#include "common.h"
 #include "weather.h"
 #include "menu.h"
 #include "calendar.h"
@@ -72,15 +72,20 @@ typedef enum {
 extern const char* const french_days[7];
 extern const char* const french_months[12];
 
-// Main function to generate dashboard PNG
-int generate_dashboard_png(const char *filename, time_t display_date, 
-                          const WeatherData *weather_data, 
-                          const MenuData *menu_data, 
-                          const CalendarData *calendar_data);
+// Font management
+int init_dashboard_fonts(void);
+void cleanup_dashboard_fonts(void);
 
-// Function to display PNG image directly on e-ink display
-int display_png_on_eink(const char *png_path);
+// Core rendering functions
+void render_dashboard_to_surface(cairo_surface_t *surface, time_t display_date,
+                                const WeatherData *weather_data,
+                                const MenuData *menu_data,
+                                const CalendarData *calendar_data);
 
+// Individual section renderers
+void draw_header_section(cairo_t *cr, time_t display_date);
+void draw_weather_section(cairo_t *cr, const WeatherData *weather_data);
+void draw_menu_section(cairo_t *cr, const MenuData *menu_data, time_t display_date);
+void draw_calendar_section(cairo_t *cr, const CalendarData *calendar_data);
 
-
-#endif // DISPLAY_EINK_H
+#endif // DASHBOARD_RENDER_H

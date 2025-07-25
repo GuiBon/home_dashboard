@@ -17,8 +17,8 @@ log/
 *.log
 
 # Temporary files
-dashboard_temp.png
-dashboard_debug.png
+dashboard_temp.bmp
+dashboard_debug.bmp
 
 # Library directories
 lib/

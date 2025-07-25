@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "display_eink.h"
+#include "dashboard_render.h"
 #include "logging.h"
 #include <cairo.h>
 #include <cairo-ft.h>
@@ -9,10 +9,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
-
-// Waveshare e-ink includes
-#include "EPD_7in5_V2.h"
-#include "GUI_Paint.h"
 
 // French localization arrays implementation
 const char* const french_days[7] = {
@@ -38,7 +34,7 @@ typedef struct {
 static FontManager g_fonts = {0};
 
 // Initialize font manager and load fonts
-static int init_fonts(void) {
+int init_dashboard_fonts(void) {
     if (g_fonts.regular) {
         return 1; // Already initialized
     }
@@ -86,7 +82,7 @@ static int init_fonts(void) {
 }
 
 // Cleanup fonts
-static void cleanup_fonts(void) {
+void cleanup_dashboard_fonts(void) {
     if (g_fonts.regular) {
         cairo_font_face_destroy(g_fonts.regular);
         cairo_font_face_destroy(g_fonts.bold);
@@ -98,6 +94,29 @@ static void cleanup_fonts(void) {
         memset(&g_fonts, 0, sizeof(g_fonts));
     }
 }
+
+// Core rendering function - renders dashboard to any Cairo surface
+void render_dashboard_to_surface(cairo_surface_t *surface, time_t display_date,
+                                const WeatherData *weather_data,
+                                const MenuData *menu_data,
+                                const CalendarData *calendar_data) {
+    
+    cairo_t *cr = cairo_create(surface);
+    
+    // Clear background (white)
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    cairo_paint(cr);
+    
+    // Draw dashboard sections
+    draw_header_section(cr, display_date);
+    draw_weather_section(cr, weather_data);
+    draw_menu_section(cr, menu_data, display_date);
+    draw_calendar_section(cr, calendar_data);
+    
+    cairo_destroy(cr);
+}
+
+// ====================== UTILITY FUNCTIONS ======================
 
 // Set font on Cairo context
 static void set_font(cairo_t *cr, FontWeight weight, int size) {
@@ -290,8 +309,10 @@ static void draw_section_border(cairo_t *cr, const char *title, int x, int y, in
     }
 }
 
+// ====================== SECTION DRAWING FUNCTIONS ======================
+
 // Draw header section
-static void draw_header_section(cairo_t *cr, time_t display_date) {
+void draw_header_section(cairo_t *cr, time_t display_date) {
     struct tm *tm_info = localtime(&display_date);
     
     // Draw border
@@ -322,7 +343,7 @@ static void draw_header_section(cairo_t *cr, time_t display_date) {
 }
 
 // Draw weather section
-static void draw_weather_section(cairo_t *cr, const WeatherData *weather_data) {
+void draw_weather_section(cairo_t *cr, const WeatherData *weather_data) {
     LOG_DEBUG("🌤️ Drawing weather section...");
     
     // Draw section border and title
@@ -461,8 +482,10 @@ static void draw_weather_section(cairo_t *cr, const WeatherData *weather_data) {
     }
 }
 
-// Draw menus section
-static void draw_menus_section(cairo_t *cr, const MenuData *menu_data) {
+// Draw menu section
+void draw_menu_section(cairo_t *cr, const MenuData *menu_data, time_t display_date) {
+    (void)display_date; // Not used in current implementation
+    
     LOG_DEBUG("🍽️ Drawing menus section...");
     
     // Draw section border and title
@@ -633,8 +656,8 @@ static void format_event_line(const CalendarEvent *event, char *buffer, size_t b
     }
 }
 
-// Draw appointments section  
-static void draw_appointments_section(cairo_t *cr, const CalendarData *calendar_data) {
+// Draw calendar section
+void draw_calendar_section(cairo_t *cr, const CalendarData *calendar_data) {
     LOG_DEBUG("📅 Drawing appointments section...");
     
     // Draw section border and title
@@ -738,196 +761,4 @@ static void draw_appointments_section(cairo_t *cr, const CalendarData *calendar_
         draw_text_with_icons(cr, tomorrow_x + 5, col_y + 35, "Aucun événement",
                             FONT_REGULAR, FONT_SIZE_TINY, ALIGN_LEFT);
     }
-}
-
-// Main function to generate dashboard PNG
-int generate_dashboard_png(const char *filename, time_t display_date, 
-                          const WeatherData *weather_data, 
-                          const MenuData *menu_data, 
-                          const CalendarData *calendar_data) {
-    
-    LOG_DEBUG("🎨 Generating dashboard PNG: %s", filename);
-    
-    // Initialize fonts
-    if (!init_fonts()) {
-        LOG_ERROR("❌ Failed to initialize fonts");
-        return 0;
-    }
-    
-    // Create Cairo surface and context
-    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, EINK_WIDTH, EINK_HEIGHT);
-    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-        printf("❌ Failed to create Cairo surface\n");
-        cleanup_fonts();
-        return 0;
-    }
-    
-    cairo_t *cr = cairo_create(surface);
-    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
-        printf("❌ Failed to create Cairo context\n");
-        cairo_surface_destroy(surface);
-        cleanup_fonts();
-        return 0;
-    }
-    
-    // Fill background with white
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_paint(cr);
-    
-    // Set default color to black
-    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-    cairo_set_line_width(cr, 1.0);
-    
-    // Draw all sections
-    draw_header_section(cr, display_date);
-    draw_weather_section(cr, weather_data);
-    draw_menus_section(cr, menu_data);
-    draw_appointments_section(cr, calendar_data);
-    
-    // Save to PNG file
-    cairo_status_t status = cairo_surface_write_to_png(surface, filename);
-    
-    // Cleanup
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
-    cleanup_fonts();
-    
-    if (status != CAIRO_STATUS_SUCCESS) {
-        printf("❌ Failed to save PNG file: %s\n", cairo_status_to_string(status));
-        return 0;
-    }
-    
-    LOG_INFO("✅ Dashboard PNG generated successfully: %s", filename);
-    
-    return 1;
-}
-
-// Convert Cairo ARGB32 data to 1-bit e-ink format
-static void convert_cairo_to_eink(unsigned char *cairo_data, UBYTE *eink_buffer, int width, int height) {
-    int eink_width_bytes = (width % 8 == 0) ? (width / 8) : (width / 8 + 1);
-    
-    // Clear the eink buffer
-    memset(eink_buffer, 0xFF, eink_width_bytes * height); // White background
-    
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            // Cairo uses BGRA32 format (4 bytes per pixel)
-            int cairo_idx = (y * width + x) * 4;
-            unsigned char blue = cairo_data[cairo_idx];
-            unsigned char green = cairo_data[cairo_idx + 1];
-            unsigned char red = cairo_data[cairo_idx + 2];
-            unsigned char alpha = cairo_data[cairo_idx + 3];
-            
-            // Convert to grayscale
-            unsigned char gray = (unsigned char)(0.299 * red + 0.587 * green + 0.114 * blue);
-            
-            // Apply alpha blending with white background
-            if (alpha < 255) {
-                gray = (unsigned char)((gray * alpha + 255 * (255 - alpha)) / 255);
-            }
-            
-            // Convert to 1-bit (threshold at 128)
-            if (gray < 128) {
-                // Black pixel - clear the bit
-                int eink_byte_idx = y * eink_width_bytes + x / 8;
-                int bit_pos = 7 - (x % 8);
-                eink_buffer[eink_byte_idx] &= ~(1 << bit_pos);
-            }
-            // White pixels are already set (0xFF initialization)
-        }
-    }
-}
-
-int display_png_on_eink(const char *png_path) {
-    LOG_INFO("📷 Loading and displaying PNG image: %s", png_path);
-    
-    // Create e-ink buffer using Waveshare method
-    UDOUBLE imagesize = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? (EPD_7IN5_V2_WIDTH / 8) : (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
-    UBYTE *BlackImage = (UBYTE *)malloc(imagesize);
-    if (!BlackImage) {
-        LOG_ERROR("❌ Failed to allocate e-ink buffer");
-        return -1;
-    }
-    
-    // Initialize Paint library with the buffer (same as working example)
-    Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
-    Paint_SelectImage(BlackImage);
-    Paint_Clear(WHITE);
-    
-    // Load PNG with Cairo and convert to BMP format that GUI_ReadBmp can handle
-    cairo_surface_t *png_surface = cairo_image_surface_create_from_png(png_path);
-    if (cairo_surface_status(png_surface) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERROR("❌ Failed to load PNG: %s (%s)", png_path, cairo_status_to_string(cairo_surface_status(png_surface)));
-        free(BlackImage);
-        return -1;
-    }
-    
-    // Create a temporary BMP file and save the PNG as BMP
-    const char *temp_bmp = "dashboard_temp.bmp";
-    
-    // Get PNG dimensions
-    int png_width = cairo_image_surface_get_width(png_surface);
-    int png_height = cairo_image_surface_get_height(png_surface);
-    LOG_DEBUG("PNG dimensions: %dx%d", png_width, png_height);
-    
-    // Create a new surface scaled to fit e-ink display
-    cairo_surface_t *scaled_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
-    cairo_t *cr = cairo_create(scaled_surface);
-    
-    // Clear with white background
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_paint(cr);
-    
-    // Calculate scaling to fit the image on the display
-    double scale_x = (double)EPD_7IN5_V2_WIDTH / png_width;
-    double scale_y = (double)EPD_7IN5_V2_HEIGHT / png_height;
-    double scale = (scale_x < scale_y) ? scale_x : scale_y;
-    
-    // Center the image
-    double offset_x = (EPD_7IN5_V2_WIDTH - png_width * scale) / 2.0;
-    double offset_y = (EPD_7IN5_V2_HEIGHT - png_height * scale) / 2.0;
-    
-    // Draw PNG onto scaled surface
-    cairo_translate(cr, offset_x, offset_y);
-    cairo_scale(cr, scale, scale);
-    cairo_set_source_surface(cr, png_surface, 0, 0);
-    cairo_paint(cr);
-    
-    // Use the existing Paint drawing functions to draw pixel by pixel
-    cairo_surface_flush(scaled_surface);
-    unsigned char *data = cairo_image_surface_get_data(scaled_surface);
-    int stride = cairo_image_surface_get_stride(scaled_surface);
-    
-    // Convert Cairo RGB24 to black/white and draw using Paint functions
-    for (int y = 0; y < EPD_7IN5_V2_HEIGHT; y++) {
-        for (int x = 0; x < EPD_7IN5_V2_WIDTH; x++) {
-            // Cairo RGB24 format: B-G-R (3 bytes per pixel, padded to 4-byte boundaries)
-            int pixel_offset = y * stride + x * 4;
-            unsigned char blue = data[pixel_offset];
-            unsigned char green = data[pixel_offset + 1];
-            unsigned char red = data[pixel_offset + 2];
-            
-            // Convert to grayscale
-            unsigned char gray = (unsigned char)(0.299 * red + 0.587 * green + 0.114 * blue);
-            
-            // Draw black or white pixel using Paint library
-            if (gray < 128) {
-                Paint_DrawPoint(x, y, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
-            }
-            // White pixels don't need to be drawn (already cleared to white)
-        }
-    }
-    
-    // Display on e-ink using Waveshare method
-    LOG_INFO("🖥️  Displaying image on e-ink display...");
-    EPD_7IN5_V2_Display(BlackImage);
-    
-    // Cleanup
-    cairo_destroy(cr);
-    cairo_surface_destroy(scaled_surface);
-    cairo_surface_destroy(png_surface);
-    free(BlackImage);
-    
-    LOG_INFO("✅ PNG image displayed successfully on e-ink");
-    return 0;
 }
