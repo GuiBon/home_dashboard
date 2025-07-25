@@ -3,9 +3,9 @@
 
 // ====================== CONFIGURATION ======================
 
-// Project root path - can be overridden at compile time with -DPROJECT_ROOT="/path"
+// Project root path - dynamically set by Makefile using $(shell pwd)
 #ifndef PROJECT_ROOT
-#define PROJECT_ROOT "/home/guillaume/source/personalProjects/home_dashboard/v2"
+#define PROJECT_ROOT "."
 #endif
 
 #define WEATHER_LATITUDE 48.8566
