@@ -581,7 +581,7 @@ int refresh_time_partial(void) {
     
     // Set up font (use Liberation Sans Bold for time display)
     cairo_select_font_face(cr, "Liberation Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 28); // FONT_SIZE_TIME
+    cairo_set_font_size(cr, 24); // Slightly smaller font to fit better in rotated space
     
     // Set text color to black
     cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
@@ -590,17 +590,24 @@ int refresh_time_partial(void) {
     cairo_text_extents_t extents;
     cairo_text_extents(cr, time_str, &extents);
     
-    // Calculate center position and apply 90° clockwise rotation
+    LOG_DEBUG("Text '%s' extents: width=%.1f, height=%.1f, x_bearing=%.1f, y_bearing=%.1f", 
+              time_str, extents.width, extents.height, extents.x_bearing, extents.y_bearing);
+    
+    // Calculate center position
     double center_x = TIME_DISPLAY_WIDTH / 2.0;
     double center_y = TIME_DISPLAY_HEIGHT / 2.0;
     
-    // Move to center, rotate, then position text
+    // Move to center, rotate 90° counter-clockwise for bottom-to-top text, then position text
     cairo_save(cr);
     cairo_translate(cr, center_x, center_y);
-    cairo_rotate(cr, M_PI / 2.0); // 90° clockwise rotation
-    cairo_move_to(cr, -extents.width / 2.0, extents.height / 2.0);
+    cairo_rotate(cr, -M_PI / 2.0); // 90° counter-clockwise rotation (bottom to top)
+    
+    // Position text relative to the rotation center (adjust for proper centering)
+    cairo_move_to(cr, -extents.width / 2.0 - extents.x_bearing, -extents.y_bearing / 2.0);
     cairo_show_text(cr, time_str);
     cairo_restore(cr);
+    
+    LOG_DEBUG("Rendered rotated time text in %dx%d Cairo surface", TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
     
     // Ensure all drawing is completed
     cairo_surface_flush(surface);
