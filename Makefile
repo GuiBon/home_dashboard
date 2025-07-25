@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -O2 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DPROJECT_ROOT=\"$(shell pwd)\" $(shell pkg-config --cflags cairo freetype2)
+CFLAGS = -Wall -Wextra -std=c99 -O2 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DPROJECT_ROOT=\"$(shell pwd)\" -DUSE_LGPIO_LIB -DRPI $(shell pkg-config --cflags cairo freetype2)
 # Suppress warnings for third-party Waveshare library
 WAVESHARE_CFLAGS = -std=c99 -O2 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -w
-LIBS = -lcurl -lcjson -lpthread $(shell pkg-config --libs cairo freetype2) -lm
+LIBS = -lcurl -lcjson -lpthread $(shell pkg-config --libs cairo freetype2) -lm -llgpio
 
 # Directories
 SRC_DIR = src

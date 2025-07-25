@@ -27,7 +27,7 @@ int init_partial_display(void) {
     if (partial_display_initialized) {
         return 0; // Already initialized
     }
-    
+
     LOG_INFO("🔧 Initializing partial e-ink display for time updates...");
     
     // Initialize Waveshare device configuration
