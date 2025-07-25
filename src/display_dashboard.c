@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <math.h>
 
 // Waveshare e-ink includes
 #include "EPD_7in5_V2.h"
@@ -526,7 +527,7 @@ int init_partial_display(void) {
 }
 
 /**
- * Refresh time display using partial e-ink update
+ * Refresh time display using partial e-ink update with Cairo-rendered rotated text
  * Returns: 0 on success, -1 on failure
  */
 int refresh_time_partial(void) {
@@ -560,31 +561,121 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Clear the time display area in buffer
+    // Create Cairo surface for rotated text rendering
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo surface for time rendering");
+        return -1;
+    }
+    
+    cairo_t *cr = cairo_create(surface);
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo context for time rendering");
+        cairo_surface_destroy(surface);
+        return -1;
+    }
+    
+    // Clear background to white
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    cairo_paint(cr);
+    
+    // Set up font (use Liberation Sans Bold for time display)
+    cairo_select_font_face(cr, "Liberation Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, 28); // FONT_SIZE_TIME
+    
+    // Set text color to black
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    
+    // Get text extents for centering
+    cairo_text_extents_t extents;
+    cairo_text_extents(cr, time_str, &extents);
+    
+    // Calculate center position and apply 90° clockwise rotation
+    double center_x = TIME_DISPLAY_WIDTH / 2.0;
+    double center_y = TIME_DISPLAY_HEIGHT / 2.0;
+    
+    // Move to center, rotate, then position text
+    cairo_save(cr);
+    cairo_translate(cr, center_x, center_y);
+    cairo_rotate(cr, M_PI / 2.0); // 90° clockwise rotation
+    cairo_move_to(cr, -extents.width / 2.0, extents.height / 2.0);
+    cairo_show_text(cr, time_str);
+    cairo_restore(cr);
+    
+    // Ensure all drawing is completed
+    cairo_surface_flush(surface);
+    
+    // Convert Cairo surface to Waveshare paint buffer
+    unsigned char *cairo_data = cairo_image_surface_get_data(surface);
+    int cairo_stride = cairo_image_surface_get_stride(surface);
+    
+    // Clear Waveshare buffer
     Paint_Clear(WHITE);
     
-    // Calculate centered position for time text
-    int text_width_approx = TIME_STRING_LENGTH * TIME_FONT_CHAR_WIDTH;
-    int text_x = (TIME_DISPLAY_WIDTH - text_width_approx) / 2;
-    int text_y = TIME_DISPLAY_HEIGHT / 2 + 8; // Center vertically with slight offset for font baseline
+    // Convert Cairo ARGB32 to Waveshare 1-bit format with Floyd-Steinberg dithering
+    float *error_buffer = calloc(TIME_DISPLAY_WIDTH + 2, sizeof(float));
+    if (!error_buffer) {
+        LOG_ERROR("❌ Failed to allocate error buffer for time dithering");
+        cairo_destroy(cr);
+        cairo_surface_destroy(surface);
+        return -1;
+    }
     
-    // Ensure text is within bounds
-    if (text_x < 2) text_x = 2;
-    if (text_y > TIME_DISPLAY_HEIGHT - 8) text_y = TIME_DISPLAY_HEIGHT - 8;
+    for (int y = 0; y < TIME_DISPLAY_HEIGHT; y++) {
+        // Reset error buffer for new row
+        for (int i = 0; i < TIME_DISPLAY_WIDTH + 2; i++) {
+            error_buffer[i] = 0.0f;
+        }
+        
+        for (int x = 0; x < TIME_DISPLAY_WIDTH; x++) {
+            int cairo_offset = y * cairo_stride + x * 4;
+            
+            // Get RGB values from Cairo ARGB32 format: B-G-R-A
+            unsigned char blue = cairo_data[cairo_offset];
+            unsigned char green = cairo_data[cairo_offset + 1];
+            unsigned char red = cairo_data[cairo_offset + 2];
+            
+            // Convert to grayscale
+            float gray = 0.299f * red + 0.587f * green + 0.114f * blue;
+            
+            // Apply accumulated error from previous pixels
+            gray += error_buffer[x + 1];
+            
+            // Clamp to valid range
+            if (gray < 0) gray = 0;
+            if (gray > 255) gray = 255;
+            
+            // Quantize: > 128 = white (255), <= 128 = black (0)
+            int quantized = (gray > 128) ? 255 : 0;
+            
+            // Calculate quantization error
+            float error = gray - quantized;
+            
+            // Distribute error to neighboring pixels (Floyd-Steinberg pattern)
+            if (x + 1 < TIME_DISPLAY_WIDTH) {
+                error_buffer[x + 2] += error * 7.0f / 16.0f; // Right pixel
+            }
+            
+            // Set pixel in Waveshare buffer
+            if (quantized == 0) {
+                Paint_SetPixel(x, y, BLACK);
+            } else {
+                Paint_SetPixel(x, y, WHITE);
+            }
+        }
+    }
     
-    // Draw the updated time (black text on white background)
-    LOG_DEBUG("Drawing time '%s' at buffer position (%d, %d) in %dx%d buffer", 
-              time_str, text_x, text_y, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
-    Paint_DrawString_EN(text_x, text_y, time_str, &Font20, BLACK, WHITE);
+    free(error_buffer);
     
-    // Perform partial refresh of the time area using rotated coordinates
-    LOG_DEBUG("Partial refresh: display area (%d, %d) to (%d, %d) on rotated landscape screen", 
-              TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED,
+    // Cleanup Cairo objects
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    
+    // Perform partial refresh at observed coordinates
+    LOG_DEBUG("Partial refresh: rotated time '%s' at display area (%d, %d) to (%d, %d)", 
+              time_str, TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED,
               TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 
               TIME_DISPLAY_Y_ROTATED + TIME_DISPLAY_HEIGHT);
-    LOG_DEBUG("Portrait original position was (%d, %d), rotated to (%d, %d)",
-              TIME_DISPLAY_X_PORTRAIT, TIME_DISPLAY_Y_PORTRAIT,
-              TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED);
     
     EPD_7IN5_V2_Display_Part(time_image_buffer, 
                              TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED, 
