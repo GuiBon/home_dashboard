@@ -126,7 +126,10 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
     const MenuData *menu_ptr = orch->status.menu_available ? &orch->menu_data : NULL;
     const CalendarData *calendar_ptr = orch->status.calendar_available ? &orch->calendar_data : NULL;
     
-    if (generate_dashboard_bmp(temp_image, date, weather_ptr, menu_ptr, calendar_ptr)) {
+    // Use current time for display (not the startup date) to ensure time is always current
+    time_t current_time = time(NULL);
+    
+    if (generate_dashboard_bmp(temp_image, current_time, weather_ptr, menu_ptr, calendar_ptr)) {
         // Display image using appropriate refresh type
         int result = display_image_on_eink_with_refresh_type(temp_image, refresh_type);
         
