@@ -1,0 +1,24 @@
+# Secrets and credentials
+config/credentials.json
+.env
+
+# Build directory
+build/
+*.o
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Log files
+log/
+*.log
+
+# Temporary files
+dashboard_temp.png
+dashboard_debug.png
+
+# Library directories
+lib/
