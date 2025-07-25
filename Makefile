@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -O2 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DPROJECT_ROOT=\"$(shell pwd)\" -DUSE_LGPIO_LIB -DRPI $(shell pkg-config --cflags cairo freetype2)
-# Suppress warnings for third-party Waveshare library
-WAVESHARE_CFLAGS = -std=c99 -O2 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -w
+CFLAGS = -g -O -Wall -Wextra -std=c99 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DPROJECT_ROOT=\"$(shell pwd)\" -DUSE_LGPIO_LIB -DRPI -DDEBUG $(shell pkg-config --cflags cairo freetype2)
+# Suppress warnings for third-party Waveshare library  
+WAVESHARE_CFLAGS = -g -O -std=c99 -Isrc -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Config -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/e-Paper -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/GUI -Ilib/e-Paper/RaspberryPi_JetsonNano/c/lib/Fonts -DUSE_LGPIO_LIB -DRPI -DDEBUG -w
 LIBS = -lcurl -lcjson -lpthread $(shell pkg-config --libs cairo freetype2) -lm -llgpio
 
 # Directories
@@ -15,7 +15,7 @@ TARGET = $(BUILD_DIR)/dashboard
 SOURCES = main.c weather.c menu.c calendar.c display_stdout.c http.c display_eink.c display_partial.c logging.c
 SRC_FILES = $(addprefix $(SRC_DIR)/, $(SOURCES))
 
-# Waveshare library sources (configured for lgpio)
+# Waveshare library sources (RPI lgpio configuration)
 WAVESHARE_SOURCES = $(WAVESHARE_DIR)/Config/DEV_Config.c \
                     $(WAVESHARE_DIR)/Config/dev_hardware_SPI.c \
                     $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c \
@@ -44,7 +44,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 $(BUILD_DIR)/DEV_Config.o: $(WAVESHARE_DIR)/Config/DEV_Config.c
 	$(CC) $(WAVESHARE_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/sysfs_gpio.o: $(WAVESHARE_DIR)/Config/sysfs_gpio.c
+$(BUILD_DIR)/dev_hardware_SPI.o: $(WAVESHARE_DIR)/Config/dev_hardware_SPI.c
 	$(CC) $(WAVESHARE_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/EPD_7in5_V2.o: $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c
