@@ -54,13 +54,14 @@ int init_partial_display(void) {
         return -1;
     }
     
-    // Allocate image buffer for time display area
-    UDOUBLE image_size = TIME_WIDTH * TIME_HEIGHT / 8; // 1 bit per pixel
+    // Allocate image buffer for time display area (with proper alignment)
+    UDOUBLE image_size = ((TIME_WIDTH % 8 == 0) ? (TIME_WIDTH / 8) : (TIME_WIDTH / 8 + 1)) * TIME_HEIGHT;
     if ((time_image_buffer = (UBYTE *)malloc(image_size)) == NULL) {
         LOG_ERROR("❌ Failed to allocate memory for time image buffer");
         DEV_Module_Exit();
         return -1;
     }
+    LOG_DEBUG("Allocated %d bytes for time image buffer (%dx%d)", image_size, TIME_WIDTH, TIME_HEIGHT);
     
     // Initialize paint library with time buffer
     Paint_NewImage(time_image_buffer, TIME_WIDTH, TIME_HEIGHT, 0, WHITE);
