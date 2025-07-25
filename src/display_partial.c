@@ -36,7 +36,18 @@ int init_partial_display(void) {
         return -1;
     }
     
-    // Initialize e-paper display for partial refresh
+    // Initialize e-paper display with full initialization first
+    if (EPD_7IN5_V2_Init() != 0) {
+        LOG_ERROR("❌ Failed to initialize e-paper display");
+        DEV_Module_Exit();
+        return -1;
+    }
+    
+    // Clear display once to ensure known state
+    LOG_DEBUG("Clearing display for partial refresh initialization...");
+    EPD_7IN5_V2_Clear();
+    
+    // Now switch to partial refresh mode
     if (EPD_7IN5_V2_Init_Part() != 0) {
         LOG_ERROR("❌ Failed to initialize e-paper for partial refresh");
         DEV_Module_Exit();
