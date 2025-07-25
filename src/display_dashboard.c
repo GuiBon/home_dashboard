@@ -132,8 +132,11 @@ static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) 
         return 0;
     }
     
-    // Create error diffusion buffer for dithering
-    float *error_buffer = calloc(width + 2, sizeof(float)); // +2 for boundary handling
+    // Calculate rotated dimensions for buffer allocation
+    int rotated_width_for_buffer = height;   // Will be used for rotated image
+    
+    // Create error diffusion buffer for dithering (sized for rotated image)
+    float *error_buffer = calloc(rotated_width_for_buffer + 2, sizeof(float)); // +2 for boundary handling
     if (!error_buffer) {
         LOG_ERROR("❌ Failed to allocate error buffer for dithering");
         free(row_data);
@@ -142,14 +145,66 @@ static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) 
     }
     
     // Write pixel data (BMP is bottom-up, 1-bit packed format with Floyd-Steinberg dithering)
-    for (int y = height - 1; y >= 0; y--) {
-        // Clear row buffer and reset error buffer for new row
-        memset(row_data, 0, row_padded);
-        memset(error_buffer, 0, (width + 2) * sizeof(float));
+    // Rotate image 90° clockwise to convert portrait (480x800) to landscape (800x480)
+    int rotated_width = height;   // Rotated width = original height
+    int rotated_height = width;   // Rotated height = original width
+    int rotated_bytes_per_row = (rotated_width + 7) / 8;
+    int rotated_row_padded = (rotated_bytes_per_row + 3) & (~3);
+    
+    // Update file size for rotated dimensions
+    fseek(f, 2, SEEK_SET);
+    int rotated_pixel_data_size = rotated_row_padded * rotated_height;
+    int rotated_file_size = BMP_HEADER_SIZE + rotated_pixel_data_size;
+    write_le32((unsigned char*)&rotated_file_size, 0, rotated_file_size);
+    fwrite(&rotated_file_size, 4, 1, f);
+    
+    // Update width/height in header
+    fseek(f, 18, SEEK_SET);
+    write_le32((unsigned char*)&rotated_width, 0, rotated_width);
+    fwrite(&rotated_width, 4, 1, f);
+    write_le32((unsigned char*)&rotated_height, 0, rotated_height);
+    fwrite(&rotated_height, 4, 1, f);
+    
+    // Update image size in header
+    fseek(f, 34, SEEK_SET);
+    write_le32((unsigned char*)&rotated_pixel_data_size, 0, rotated_pixel_data_size);
+    fwrite(&rotated_pixel_data_size, 4, 1, f);
+    
+    // Seek back to data section
+    fseek(f, BMP_HEADER_SIZE, SEEK_SET);
+    
+    // Reallocate row buffer for rotated dimensions
+    free(row_data);
+    row_data = malloc(rotated_row_padded);
+    if (!row_data) {
+        LOG_ERROR("❌ Failed to allocate rotated row buffer");
+        free(error_buffer);
+        fclose(f);
+        return 0;
+    }
+    
+    // Write rotated pixel data (BMP is bottom-up)
+    for (int y = rotated_height - 1; y >= 0; y--) {
+        // Clear row buffer
+        memset(row_data, 0, rotated_row_padded);
         
-        // Convert ARGB32 to 1-bit monochrome with dithering
-        for (int x = 0; x < width; x++) {
-            int cairo_offset = y * stride + x * 4;
+        // Reset error buffer for new row (only reset current and next pixel)
+        for (int i = 0; i < rotated_width + 2; i++) {
+            error_buffer[i] = 0.0f;
+        }
+        
+        // Convert rotated coordinates back to original image coordinates
+        for (int x = 0; x < rotated_width; x++) {
+            // Rotation mapping: rotated(x,y) = original(original_width-1-y, x)
+            int orig_x = width - 1 - y;   // Original x from rotated y
+            int orig_y = x;               // Original y from rotated x
+            
+            // Skip if outside original bounds
+            if (orig_x < 0 || orig_x >= width || orig_y < 0 || orig_y >= height) {
+                continue;
+            }
+            
+            int cairo_offset = orig_y * stride + orig_x * 4;
             
             // Get RGB values from Cairo ARGB32 format: B-G-R-A
             unsigned char blue = data[cairo_offset];
@@ -174,17 +229,9 @@ static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) 
             float error = gray - quantized;
             
             // Distribute error to neighboring pixels (Floyd-Steinberg pattern)
-            // Current pixel is at (x, y), distribute error to:
-            // - Right pixel: 7/16 of error
-            // - Bottom-left pixel: 3/16 of error  
-            // - Bottom pixel: 5/16 of error
-            // - Bottom-right pixel: 1/16 of error
-            if (x + 1 < width) {
+            if (x + 1 < rotated_width) {
                 error_buffer[x + 2] += error * 7.0f / 16.0f; // Right pixel
             }
-            // Note: For bottom row pixels, we'd need a 2D error buffer
-            // For simplicity, we're only doing horizontal error diffusion
-            // which still provides good dithering results
             
             // Pack into bit array (MSB first)
             int byte_index = x / 8;
@@ -195,7 +242,7 @@ static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) 
             }
         }
         
-        if (fwrite(row_data, 1, row_padded, f) != (size_t)row_padded) {
+        if (fwrite(row_data, 1, rotated_row_padded, f) != (size_t)rotated_row_padded) {
             LOG_ERROR("❌ Failed to write BMP row data");
             free(error_buffer);
             free(row_data);

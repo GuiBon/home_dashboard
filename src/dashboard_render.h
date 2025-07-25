@@ -7,7 +7,7 @@
 #include "menu.h"
 #include "calendar.h"
 
-// Display dimensions (7.5" Waveshare e-paper in portrait)
+// Display dimensions (7.5" Waveshare e-paper rendered as portrait, displayed as landscape)
 #define EINK_WIDTH 480
 #define EINK_HEIGHT 800
 
