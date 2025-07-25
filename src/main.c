@@ -117,21 +117,14 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
     const CalendarData *calendar_ptr = orch->status.calendar_available ? &orch->calendar_data : NULL;
     
     if (generate_dashboard_png(temp_png, date, weather_ptr, menu_ptr, calendar_ptr)) {
-        // Call Python script with appropriate refresh mode
-        char cmd[256];
-        if (use_fast_refresh) {
-            snprintf(cmd, sizeof(cmd), "python3 " PROJECT_ROOT "/scripts/display_eink.py \"%s\" fast", temp_png);
-        } else {
-            snprintf(cmd, sizeof(cmd), "python3 " PROJECT_ROOT "/scripts/display_eink.py \"%s\"", temp_png);
-        }
-        
-        int result = system(cmd);
+        // Display PNG directly using C library
+        int result = display_png_on_eink(temp_png);
         
         if (result == 0) {
             const char *refresh_type = use_fast_refresh ? "fast refresh" : "full refresh";
             LOG_INFO("✅ E-ink display refreshed successfully (%s - %s)", refresh_type, update_type);
         } else {
-            LOG_ERROR("❌ Failed to refresh e-ink display (exit code: %d)", result);
+            LOG_ERROR("❌ Failed to refresh e-ink display");
         }
     } else {
         LOG_ERROR("❌ Failed to generate PNG for %s display", update_type);

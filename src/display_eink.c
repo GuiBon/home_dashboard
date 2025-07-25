@@ -10,6 +10,10 @@
 #include <stdio.h>
 #include <math.h>
 
+// Waveshare e-ink includes
+#include "EPD_7in5_V2.h"
+#include "GUI_Paint.h"
+
 // French localization arrays implementation
 const char* const french_days[7] = {
     "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"
@@ -796,4 +800,110 @@ int generate_dashboard_png(const char *filename, time_t display_date,
     LOG_INFO("✅ Dashboard PNG generated successfully: %s", filename);
     
     return 1;
+}
+
+// Convert Cairo ARGB32 data to 1-bit e-ink format
+static void convert_cairo_to_eink(unsigned char *cairo_data, UBYTE *eink_buffer, int width, int height) {
+    int eink_width_bytes = (width % 8 == 0) ? (width / 8) : (width / 8 + 1);
+    
+    // Clear the eink buffer
+    memset(eink_buffer, 0xFF, eink_width_bytes * height); // White background
+    
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            // Cairo uses BGRA32 format (4 bytes per pixel)
+            int cairo_idx = (y * width + x) * 4;
+            unsigned char blue = cairo_data[cairo_idx];
+            unsigned char green = cairo_data[cairo_idx + 1];
+            unsigned char red = cairo_data[cairo_idx + 2];
+            unsigned char alpha = cairo_data[cairo_idx + 3];
+            
+            // Convert to grayscale
+            unsigned char gray = (unsigned char)(0.299 * red + 0.587 * green + 0.114 * blue);
+            
+            // Apply alpha blending with white background
+            if (alpha < 255) {
+                gray = (unsigned char)((gray * alpha + 255 * (255 - alpha)) / 255);
+            }
+            
+            // Convert to 1-bit (threshold at 128)
+            if (gray < 128) {
+                // Black pixel - clear the bit
+                int eink_byte_idx = y * eink_width_bytes + x / 8;
+                int bit_pos = 7 - (x % 8);
+                eink_buffer[eink_byte_idx] &= ~(1 << bit_pos);
+            }
+            // White pixels are already set (0xFF initialization)
+        }
+    }
+}
+
+int display_png_on_eink(const char *png_path) {
+    LOG_INFO("📷 Loading PNG image: %s", png_path);
+    
+    // Load PNG with Cairo
+    cairo_surface_t *png_surface = cairo_image_surface_create_from_png(png_path);
+    if (cairo_surface_status(png_surface) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to load PNG: %s (%s)", png_path, cairo_status_to_string(cairo_surface_status(png_surface)));
+        return -1;
+    }
+    
+    // Get PNG dimensions
+    int png_width = cairo_image_surface_get_width(png_surface);
+    int png_height = cairo_image_surface_get_height(png_surface);
+    LOG_DEBUG("PNG dimensions: %dx%d", png_width, png_height);
+    
+    // Create e-ink buffer
+    UDOUBLE imagesize = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? (EPD_7IN5_V2_WIDTH / 8) : (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
+    UBYTE *BlackImage = (UBYTE *)malloc(imagesize);
+    if (!BlackImage) {
+        LOG_ERROR("❌ Failed to allocate e-ink buffer");
+        cairo_surface_destroy(png_surface);
+        return -1;
+    }
+    
+    // Create Cairo surface for e-ink buffer (ARGB32 for easier processing)
+    cairo_surface_t *eink_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
+    cairo_t *cr = cairo_create(eink_surface);
+    
+    // Clear with white background
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    cairo_paint(cr);
+    
+    // Calculate scaling to fit the image on the display
+    double scale_x = (double)EPD_7IN5_V2_WIDTH / png_width;
+    double scale_y = (double)EPD_7IN5_V2_HEIGHT / png_height;
+    double scale = (scale_x < scale_y) ? scale_x : scale_y; // Use smaller scale to fit
+    
+    // Center the image
+    double offset_x = (EPD_7IN5_V2_WIDTH - png_width * scale) / 2.0;
+    double offset_y = (EPD_7IN5_V2_HEIGHT - png_height * scale) / 2.0;
+    
+    LOG_DEBUG("Scaling: %.2f, Offset: (%.1f, %.1f)", scale, offset_x, offset_y);
+    
+    // Draw PNG onto e-ink surface with scaling and centering
+    cairo_translate(cr, offset_x, offset_y);
+    cairo_scale(cr, scale, scale);
+    cairo_set_source_surface(cr, png_surface, 0, 0);
+    cairo_paint(cr);
+    
+    // Get Cairo surface data
+    cairo_surface_flush(eink_surface);
+    unsigned char *cairo_data = cairo_image_surface_get_data(eink_surface);
+    
+    // Convert Cairo surface to e-ink buffer
+    convert_cairo_to_eink(cairo_data, BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
+    
+    // Display on e-ink
+    LOG_INFO("🖥️  Displaying image on e-ink display...");
+    EPD_7IN5_V2_Display(BlackImage);
+    
+    // Cleanup
+    cairo_destroy(cr);
+    cairo_surface_destroy(eink_surface);
+    cairo_surface_destroy(png_surface);
+    free(BlackImage);
+    
+    LOG_INFO("✅ PNG image displayed successfully on e-ink");
+    return 0;
 }

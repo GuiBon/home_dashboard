@@ -78,6 +78,9 @@ int generate_dashboard_png(const char *filename, time_t display_date,
                           const MenuData *menu_data, 
                           const CalendarData *calendar_data);
 
+// Function to display PNG image directly on e-ink display
+int display_png_on_eink(const char *png_path);
+
 
 
 #endif // DISPLAY_EINK_H
