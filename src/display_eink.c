@@ -839,32 +839,40 @@ static void convert_cairo_to_eink(unsigned char *cairo_data, UBYTE *eink_buffer,
 }
 
 int display_png_on_eink(const char *png_path) {
-    LOG_INFO("📷 Loading PNG image: %s", png_path);
+    LOG_INFO("📷 Loading and displaying PNG image: %s", png_path);
     
-    // Load PNG with Cairo
+    // Create e-ink buffer using Waveshare method
+    UDOUBLE imagesize = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? (EPD_7IN5_V2_WIDTH / 8) : (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
+    UBYTE *BlackImage = (UBYTE *)malloc(imagesize);
+    if (!BlackImage) {
+        LOG_ERROR("❌ Failed to allocate e-ink buffer");
+        return -1;
+    }
+    
+    // Initialize Paint library with the buffer (same as working example)
+    Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
+    Paint_SelectImage(BlackImage);
+    Paint_Clear(WHITE);
+    
+    // Load PNG with Cairo and convert to BMP format that GUI_ReadBmp can handle
     cairo_surface_t *png_surface = cairo_image_surface_create_from_png(png_path);
     if (cairo_surface_status(png_surface) != CAIRO_STATUS_SUCCESS) {
         LOG_ERROR("❌ Failed to load PNG: %s (%s)", png_path, cairo_status_to_string(cairo_surface_status(png_surface)));
+        free(BlackImage);
         return -1;
     }
+    
+    // Create a temporary BMP file and save the PNG as BMP
+    const char *temp_bmp = "dashboard_temp.bmp";
     
     // Get PNG dimensions
     int png_width = cairo_image_surface_get_width(png_surface);
     int png_height = cairo_image_surface_get_height(png_surface);
     LOG_DEBUG("PNG dimensions: %dx%d", png_width, png_height);
     
-    // Create e-ink buffer
-    UDOUBLE imagesize = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? (EPD_7IN5_V2_WIDTH / 8) : (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
-    UBYTE *BlackImage = (UBYTE *)malloc(imagesize);
-    if (!BlackImage) {
-        LOG_ERROR("❌ Failed to allocate e-ink buffer");
-        cairo_surface_destroy(png_surface);
-        return -1;
-    }
-    
-    // Create Cairo surface for e-ink buffer (ARGB32 for easier processing)
-    cairo_surface_t *eink_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
-    cairo_t *cr = cairo_create(eink_surface);
+    // Create a new surface scaled to fit e-ink display
+    cairo_surface_t *scaled_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
+    cairo_t *cr = cairo_create(scaled_surface);
     
     // Clear with white background
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
@@ -873,34 +881,50 @@ int display_png_on_eink(const char *png_path) {
     // Calculate scaling to fit the image on the display
     double scale_x = (double)EPD_7IN5_V2_WIDTH / png_width;
     double scale_y = (double)EPD_7IN5_V2_HEIGHT / png_height;
-    double scale = (scale_x < scale_y) ? scale_x : scale_y; // Use smaller scale to fit
+    double scale = (scale_x < scale_y) ? scale_x : scale_y;
     
     // Center the image
     double offset_x = (EPD_7IN5_V2_WIDTH - png_width * scale) / 2.0;
     double offset_y = (EPD_7IN5_V2_HEIGHT - png_height * scale) / 2.0;
     
-    LOG_DEBUG("Scaling: %.2f, Offset: (%.1f, %.1f)", scale, offset_x, offset_y);
-    
-    // Draw PNG onto e-ink surface with scaling and centering
+    // Draw PNG onto scaled surface
     cairo_translate(cr, offset_x, offset_y);
     cairo_scale(cr, scale, scale);
     cairo_set_source_surface(cr, png_surface, 0, 0);
     cairo_paint(cr);
     
-    // Get Cairo surface data
-    cairo_surface_flush(eink_surface);
-    unsigned char *cairo_data = cairo_image_surface_get_data(eink_surface);
+    // Use the existing Paint drawing functions to draw pixel by pixel
+    cairo_surface_flush(scaled_surface);
+    unsigned char *data = cairo_image_surface_get_data(scaled_surface);
+    int stride = cairo_image_surface_get_stride(scaled_surface);
     
-    // Convert Cairo surface to e-ink buffer
-    convert_cairo_to_eink(cairo_data, BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
+    // Convert Cairo RGB24 to black/white and draw using Paint functions
+    for (int y = 0; y < EPD_7IN5_V2_HEIGHT; y++) {
+        for (int x = 0; x < EPD_7IN5_V2_WIDTH; x++) {
+            // Cairo RGB24 format: B-G-R (3 bytes per pixel, padded to 4-byte boundaries)
+            int pixel_offset = y * stride + x * 4;
+            unsigned char blue = data[pixel_offset];
+            unsigned char green = data[pixel_offset + 1];
+            unsigned char red = data[pixel_offset + 2];
+            
+            // Convert to grayscale
+            unsigned char gray = (unsigned char)(0.299 * red + 0.587 * green + 0.114 * blue);
+            
+            // Draw black or white pixel using Paint library
+            if (gray < 128) {
+                Paint_DrawPoint(x, y, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+            }
+            // White pixels don't need to be drawn (already cleared to white)
+        }
+    }
     
-    // Display on e-ink
+    // Display on e-ink using Waveshare method
     LOG_INFO("🖥️  Displaying image on e-ink display...");
     EPD_7IN5_V2_Display(BlackImage);
     
     // Cleanup
     cairo_destroy(cr);
-    cairo_surface_destroy(eink_surface);
+    cairo_surface_destroy(scaled_surface);
     cairo_surface_destroy(png_surface);
     free(BlackImage);
     
