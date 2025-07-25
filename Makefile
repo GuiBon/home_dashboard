@@ -15,9 +15,9 @@ TARGET = $(BUILD_DIR)/dashboard
 SOURCES = main.c weather.c menu.c calendar.c display_stdout.c http.c display_eink.c display_partial.c logging.c
 SRC_FILES = $(addprefix $(SRC_DIR)/, $(SOURCES))
 
-# Waveshare library sources (GPIO only, no SPI needed)
+# Waveshare library sources (configured for lgpio)
 WAVESHARE_SOURCES = $(WAVESHARE_DIR)/Config/DEV_Config.c \
-                    $(WAVESHARE_DIR)/Config/sysfs_gpio.c \
+                    $(WAVESHARE_DIR)/Config/dev_hardware_SPI.c \
                     $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c \
                     $(WAVESHARE_DIR)/GUI/GUI_Paint.c \
                     $(WAVESHARE_DIR)/Fonts/font20.c
