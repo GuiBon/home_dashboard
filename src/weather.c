@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include <curl/curl.h>
 #include <cjson/cJSON.h>
 #include "common.h"
@@ -350,4 +351,51 @@ void weather_client_free(WeatherClient *client) {
     if (client) {
         free(client);
     }
+}
+
+// Weather data comparison function
+int weather_data_changed(const WeatherData *current, const WeatherData *previous) {
+    if (!current || !previous) {
+        return 1; // Consider it changed if either is null
+    }
+    
+    // Compare current weather
+    if (fabs(current->current.temperature - previous->current.temperature) > 0.5) {
+        return 1;
+    }
+    if (strcmp(current->current.description, previous->current.description) != 0) {
+        return 1;
+    }
+    if (strcmp(current->current.icon, previous->current.icon) != 0) {
+        return 1;
+    }
+    
+    // Compare forecast count
+    if (current->forecast_count != previous->forecast_count) {
+        return 1;
+    }
+    
+    // Compare forecasts
+    for (int i = 0; i < current->forecast_count; i++) {
+        if (fabs(current->forecasts[i].temperature - previous->forecasts[i].temperature) > 0.5) {
+            return 1;
+        }
+        if (strcmp(current->forecasts[i].description, previous->forecasts[i].description) != 0) {
+            return 1;
+        }
+        if (strcmp(current->forecasts[i].icon, previous->forecasts[i].icon) != 0) {
+            return 1;
+        }
+        // Note: datetime differences are expected for forecasts, so we don't compare them
+    }
+    
+    // Compare sunrise/sunset times (allow 10 minute tolerance for minor variations)
+    if (abs((int)(current->sunrise - previous->sunrise)) > 600) {
+        return 1;
+    }
+    if (abs((int)(current->sunset - previous->sunset)) > 600) {
+        return 1;
+    }
+    
+    return 0; // No significant changes detected
 }

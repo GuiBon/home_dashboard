@@ -55,6 +55,7 @@ typedef struct {
     CalendarClient *calendar_client;
     
     WeatherData weather_data;
+    WeatherData previous_weather_data;  // For comparison to detect changes
     MenuData menu_data;
     CalendarData calendar_data;
     ComponentStatus status;
@@ -75,7 +76,7 @@ static DataOrchestrator *g_orchestrator = NULL;
 // Constants for batching
 #define BATCH_DELAY_SECONDS 30  // Wait 30 seconds to batch updates (menu can be slow)
 
-// Forward declaration
+// Forward declaration  
 static void update_eink_display_batched(DataOrchestrator *orch, time_t date);
 
 // Centralized function to update e-ink display based on batched changes
@@ -88,8 +89,18 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
         return;  // No changes, no need to refresh
     }
     
-    // Determine refresh type: fast if only weather changed, full for menu/calendar changes
-    int use_fast_refresh = orch->status.weather_changed && !orch->status.menu_changed && !orch->status.calendar_changed;
+    // Determine refresh type based on what data changed
+    RefreshType refresh_type = REFRESH_FULL; // Default to full refresh
+    
+    if (orch->status.weather_changed && !orch->status.menu_changed && !orch->status.calendar_changed) {
+        // Only weather changed - use fast refresh for quicker updates
+        refresh_type = REFRESH_FAST;
+        LOG_DEBUG("Using fast refresh (weather-only update)");
+    } else {
+        // Menu or calendar changed, or multiple changes - use full refresh for best quality
+        refresh_type = REFRESH_FULL;
+        LOG_DEBUG("Using full refresh (menu/calendar/multiple updates)");
+    }
     
     // Build update type description
     char update_type[64] = "";
@@ -116,12 +127,13 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
     const CalendarData *calendar_ptr = orch->status.calendar_available ? &orch->calendar_data : NULL;
     
     if (generate_dashboard_bmp(temp_image, date, weather_ptr, menu_ptr, calendar_ptr)) {
-        // Display image directly using C library
-        int result = display_image_on_eink(temp_image);
+        // Display image using appropriate refresh type
+        int result = display_image_on_eink_with_refresh_type(temp_image, refresh_type);
         
         if (result == 0) {
-            const char *refresh_type = use_fast_refresh ? "fast refresh" : "full refresh";
-            LOG_INFO("✅ E-ink display refreshed successfully (%s - %s)", refresh_type, update_type);
+            const char *refresh_names[] = {"full", "fast", "partial"};
+            LOG_INFO("✅ E-ink display refreshed successfully (%s refresh - %s)", 
+                     refresh_names[refresh_type], update_type);
         } else {
             LOG_ERROR("❌ Failed to refresh e-ink display");
         }
@@ -234,6 +246,7 @@ DataOrchestrator* orchestrator_init(int debug) {
     // Initialize data structures
     memset(&orch->calendar_data, 0, sizeof(CalendarData));
     memset(&orch->weather_data, 0, sizeof(WeatherData));
+    memset(&orch->previous_weather_data, 0, sizeof(WeatherData));
     memset(&orch->menu_data, 0, sizeof(MenuData));
     
     // Initialize component status
@@ -305,12 +318,27 @@ void update_weather(DataOrchestrator *orch) {
     pthread_mutex_lock(&orch->data_mutex);
     
     if (orch->weather_client) {
-        int result = get_weather_data(orch->weather_client, &orch->weather_data);
+        WeatherData new_weather_data;
+        memset(&new_weather_data, 0, sizeof(WeatherData));
+        
+        int result = get_weather_data(orch->weather_client, &new_weather_data);
         if (result == 0) {
             orch->status.weather_available = 1;
             orch->status.weather_error[0] = '\0';
-            orch->status.weather_changed = 1;  // Mark weather as changed
-            LOG_INFO("✅ Weather data updated successfully");
+            
+            // Check if weather data actually changed
+            int data_changed = weather_data_changed(&new_weather_data, &orch->previous_weather_data);
+            orch->status.weather_changed = data_changed;
+            
+            if (data_changed) {
+                LOG_INFO("✅ Weather data updated successfully (data changed)");
+            } else {
+                LOG_DEBUG("🌤️  Weather data refreshed (no significant changes)");
+            }
+            
+            // Store previous data and update current data
+            orch->previous_weather_data = orch->weather_data;
+            orch->weather_data = new_weather_data;
         } else {
             orch->status.weather_available = 0;
             snprintf(orch->status.weather_error, sizeof(orch->status.weather_error), 

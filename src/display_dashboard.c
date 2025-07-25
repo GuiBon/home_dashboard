@@ -15,8 +15,55 @@
 #include "DEV_Config.h"
 #include "fonts.h"
 
+// ====================== CONSTANTS ======================
 
-// Write Cairo surface as BMP file (for e-ink compatibility)
+// BMP file format constants
+#define BMP_HEADER_SIZE 54
+#define BMP_BITS_PER_PIXEL 24
+#define BMP_BYTES_PER_PIXEL 3
+
+// Time display positioning constants (matches dashboard_render.c layout)
+// Time is centered at HEADER_X + HEADER_WIDTH/2, HEADER_Y + 65
+// That's 5 + 470/2 = 240, 5 + 65 = 70
+#define TIME_DISPLAY_X 190          // X position for time in header (centered around 240)
+#define TIME_DISPLAY_Y 60           // Y position for time in header  
+#define TIME_DISPLAY_WIDTH 100      // Width of time display area
+#define TIME_DISPLAY_HEIGHT 30      // Height of time display area
+#define TIME_FONT_CHAR_WIDTH 14     // Approximate character width for Font20
+#define TIME_STRING_LENGTH 5        // "HH:MM" = 5 characters
+
+// ====================== GLOBAL STATE ======================
+
+// Hardware initialization state
+static int eink_hardware_initialized = 0;
+
+// Partial display state
+static UBYTE *time_image_buffer = NULL;
+static int partial_display_initialized = 0;
+
+// ====================== BMP FILE GENERATION ======================
+
+/**
+ * Write little-endian 32-bit integer to buffer
+ */
+static void write_le32(unsigned char *buffer, int offset, int value) {
+    buffer[offset] = value & 0xff;
+    buffer[offset + 1] = (value >> 8) & 0xff;
+    buffer[offset + 2] = (value >> 16) & 0xff;
+    buffer[offset + 3] = (value >> 24) & 0xff;
+}
+
+/**
+ * Write little-endian 16-bit integer to buffer
+ */
+static void write_le16(unsigned char *buffer, int offset, int value) {
+    buffer[offset] = value & 0xff;
+    buffer[offset + 1] = (value >> 8) & 0xff;
+}
+
+/**
+ * Write Cairo surface as BMP file (optimized for e-ink compatibility)
+ */
 static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) {
     int width = cairo_image_surface_get_width(surface);
     int height = cairo_image_surface_get_height(surface);
@@ -29,49 +76,65 @@ static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) 
         return 0;
     }
     
-    // BMP Header (54 bytes total)
-    int row_padded = (width * 3 + 3) & (~3); // Pad to 4 bytes
-    int file_size = 54 + row_padded * height;
+    // Calculate row padding (BMP rows must be aligned to 4 bytes)
+    int row_padded = (width * BMP_BYTES_PER_PIXEL + 3) & (~3);
+    int file_size = BMP_HEADER_SIZE + row_padded * height;
+    
+    // Create BMP header
+    unsigned char bmp_header[BMP_HEADER_SIZE] = {0};
     
     // BMP File Header (14 bytes)
-    unsigned char bmp_header[54] = {
-        'B', 'M',                           // Signature
-        file_size & 0xff, (file_size >> 8) & 0xff, (file_size >> 16) & 0xff, (file_size >> 24) & 0xff, // File size
-        0, 0, 0, 0,                         // Reserved
-        54, 0, 0, 0,                        // Data offset
-        
-        // BMP Info Header (40 bytes)
-        40, 0, 0, 0,                        // Header size
-        width & 0xff, (width >> 8) & 0xff, (width >> 16) & 0xff, (width >> 24) & 0xff, // Width
-        height & 0xff, (height >> 8) & 0xff, (height >> 16) & 0xff, (height >> 24) & 0xff, // Height
-        1, 0,                               // Planes
-        24, 0,                              // Bits per pixel
-        0, 0, 0, 0,                         // Compression
-        0, 0, 0, 0,                         // Image size (can be 0 for uncompressed)
-        0, 0, 0, 0,                         // X pixels per meter
-        0, 0, 0, 0,                         // Y pixels per meter
-        0, 0, 0, 0,                         // Colors used
-        0, 0, 0, 0                          // Important colors
-    };
+    bmp_header[0] = 'B';
+    bmp_header[1] = 'M';
+    write_le32(bmp_header, 2, file_size);           // File size
+    // Bytes 6-9: Reserved (already zeroed)
+    write_le32(bmp_header, 10, BMP_HEADER_SIZE);    // Data offset
     
-    fwrite(bmp_header, 1, 54, f);
+    // BMP Info Header (40 bytes)
+    write_le32(bmp_header, 14, 40);                 // Header size
+    write_le32(bmp_header, 18, width);              // Width
+    write_le32(bmp_header, 22, height);             // Height
+    write_le16(bmp_header, 26, 1);                  // Planes
+    write_le16(bmp_header, 28, BMP_BITS_PER_PIXEL); // Bits per pixel
+    // Remaining fields (compression, image size, etc.) remain zero
+    
+    if (fwrite(bmp_header, 1, BMP_HEADER_SIZE, f) != BMP_HEADER_SIZE) {
+        LOG_ERROR("❌ Failed to write BMP header");
+        fclose(f);
+        return 0;
+    }
     
     // Write pixel data (BMP is bottom-up, BGR format)
     unsigned char *row_data = malloc(row_padded);
+    if (!row_data) {
+        LOG_ERROR("❌ Failed to allocate row buffer");
+        fclose(f);
+        return 0;
+    }
+    
     for (int y = height - 1; y >= 0; y--) {
+        // Convert ARGB32 to BGR24 format
         for (int x = 0; x < width; x++) {
-            // Cairo ARGB32: B-G-R-A, convert to BGR
             int cairo_offset = y * stride + x * 4;
-            int bmp_offset = x * 3;
-            row_data[bmp_offset] = data[cairo_offset];     // Blue
+            int bmp_offset = x * BMP_BYTES_PER_PIXEL;
+            
+            // Cairo ARGB32: B-G-R-A, convert to BGR
+            row_data[bmp_offset] = data[cairo_offset];         // Blue
             row_data[bmp_offset + 1] = data[cairo_offset + 1]; // Green  
             row_data[bmp_offset + 2] = data[cairo_offset + 2]; // Red
         }
-        // Pad row to 4 bytes
-        for (int x = width * 3; x < row_padded; x++) {
+        
+        // Pad row to 4-byte boundary
+        for (int x = width * BMP_BYTES_PER_PIXEL; x < row_padded; x++) {
             row_data[x] = 0;
         }
-        fwrite(row_data, 1, row_padded, f);
+        
+        if (fwrite(row_data, 1, row_padded, f) != (size_t)row_padded) {
+            LOG_ERROR("❌ Failed to write BMP row data");
+            free(row_data);
+            fclose(f);
+            return 0;
+        }
     }
     
     free(row_data);
@@ -79,15 +142,32 @@ static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) 
     return 1;
 }
 
-// Generate dashboard as BMP
+/**
+ * Generate dashboard as BMP file for e-ink display
+ */
 int generate_dashboard_bmp(const char *filename, time_t display_date, 
                           const WeatherData *weather_data, 
                           const MenuData *menu_data, 
                           const CalendarData *calendar_data) {
     
+    if (!filename) {
+        LOG_ERROR("❌ Invalid filename for BMP generation");
+        return 0;
+    }
+    
     // Create surface in RGB24 format for BMP compatibility
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, EINK_WIDTH, EINK_HEIGHT);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo surface for BMP generation");
+        return 0;
+    }
+    
     cairo_t *cr = cairo_create(surface);
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo context for BMP generation");
+        cairo_surface_destroy(surface);
+        return 0;
+    }
     
     // Initialize fonts
     if (!init_dashboard_fonts()) {
@@ -100,26 +180,31 @@ int generate_dashboard_bmp(const char *filename, time_t display_date,
     // Render dashboard to surface
     render_dashboard_to_surface(surface, display_date, weather_data, menu_data, calendar_data);
     
-    // Write as BMP
+    // Ensure all drawing operations are completed
     cairo_surface_flush(surface);
+    
+    // Write as BMP
     int success = write_surface_as_bmp(surface, filename);
     
-    // Cleanup
+    // Cleanup Cairo objects
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
     
     if (success) {
         LOG_INFO("✅ Dashboard BMP generated successfully: %s", filename);
+    } else {
+        LOG_ERROR("❌ Failed to write BMP file: %s", filename);
     }
     
     return success;
 }
 
-// ====================== E-INK HARDWARE INITIALIZATION ======================
+// ====================== E-INK HARDWARE MANAGEMENT ======================
 
-// Global variables for hardware state
-static int eink_hardware_initialized = 0;
-
+/**
+ * Initialize Waveshare e-ink hardware
+ * Returns: 0 on success, -1 on failure
+ */
 int init_eink_hardware(void) {
     if (eink_hardware_initialized) {
         return 0; // Already initialized
@@ -133,14 +218,14 @@ int init_eink_hardware(void) {
         return -1;
     }
     
-    // Initialize e-paper display with full initialization first
+    // Initialize e-paper display with full initialization
     if (EPD_7IN5_V2_Init() != 0) {
         LOG_ERROR("❌ Failed to initialize e-paper display");
         DEV_Module_Exit();
         return -1;
     }
     
-    // Clear display once to ensure known state
+    // Clear display to ensure known state
     LOG_DEBUG("Clearing display for hardware initialization...");
     EPD_7IN5_V2_Clear();
     
@@ -149,6 +234,9 @@ int init_eink_hardware(void) {
     return 0;
 }
 
+/**
+ * Cleanup Waveshare e-ink hardware
+ */
 void cleanup_eink_hardware(void) {
     if (eink_hardware_initialized) {
         LOG_INFO("🧹 Cleaning up e-ink hardware...");
@@ -164,9 +252,18 @@ void cleanup_eink_hardware(void) {
     }
 }
 
-// Display image on e-ink
-int display_image_on_eink(const char *image_path) {
-    LOG_INFO("🖥️  Displaying image on e-ink: %s", image_path);
+/**
+ * Display BMP image on e-ink screen with specified refresh type
+ * Returns: 0 on success, -1 on failure
+ */
+int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType refresh_type) {
+    if (!image_path) {
+        LOG_ERROR("❌ Invalid image path");
+        return -1;
+    }
+    
+    const char *refresh_names[] = {"full", "fast", "partial"};
+    LOG_INFO("🖥️  Displaying image on e-ink (%s refresh): %s", refresh_names[refresh_type], image_path);
     
     // Ensure hardware is initialized
     if (init_eink_hardware() != 0) {
@@ -174,57 +271,96 @@ int display_image_on_eink(const char *image_path) {
         return -1;
     }
     
-    // Create e-ink buffer using Waveshare method (same as working example)
-    UDOUBLE imagesize = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? (EPD_7IN5_V2_WIDTH / 8) : (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
-    UBYTE *BlackImage = (UBYTE *)malloc(imagesize);
-    if (!BlackImage) {
-        LOG_ERROR("❌ Failed to allocate e-ink buffer");
+    // Validate file format
+    const char *ext = strrchr(image_path, '.');
+    if (!ext || strcmp(ext, ".bmp") != 0) {
+        LOG_ERROR("❌ Unsupported image format: %s (only BMP supported for e-ink)", image_path);
         return -1;
     }
     
-    // Initialize Paint library with the buffer (same as working example)
+    // Initialize display for the specified refresh type
+    switch (refresh_type) {
+        case REFRESH_FULL:
+            LOG_DEBUG("Initializing e-ink for full refresh...");
+            if (EPD_7IN5_V2_Init() != 0) {
+                LOG_ERROR("❌ Failed to initialize e-ink for full refresh");
+                return -1;
+            }
+            break;
+            
+        case REFRESH_FAST:
+            LOG_DEBUG("Initializing e-ink for fast refresh...");
+            if (EPD_7IN5_V2_Init_Fast() != 0) {
+                LOG_ERROR("❌ Failed to initialize e-ink for fast refresh");
+                return -1;
+            }
+            break;
+            
+        case REFRESH_PARTIAL:
+            LOG_DEBUG("Initializing e-ink for partial refresh...");
+            if (EPD_7IN5_V2_Init_Part() != 0) {
+                LOG_ERROR("❌ Failed to initialize e-ink for partial refresh");
+                return -1;
+            }
+            break;
+            
+        default:
+            LOG_ERROR("❌ Invalid refresh type: %d", refresh_type);
+            return -1;
+    }
+    
+    // Calculate buffer size for e-ink display
+    UDOUBLE imagesize = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? 
+                         (EPD_7IN5_V2_WIDTH / 8) : 
+                         (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
+    
+    UBYTE *BlackImage = (UBYTE *)malloc(imagesize);
+    if (!BlackImage) {
+        LOG_ERROR("❌ Failed to allocate e-ink buffer (%lu bytes)", imagesize);
+        return -1;
+    }
+    
+    // Initialize Paint library with the buffer
     Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
     
-    // Check file extension to determine how to load it
-    const char *ext = strrchr(image_path, '.');
-    if (ext && strcmp(ext, ".bmp") == 0) {
-        // Use Waveshare's proven GUI_ReadBmp function for BMP files
-        LOG_DEBUG("Loading BMP using GUI_ReadBmp: %s", image_path);
-        GUI_ReadBmp(image_path, 0, 0);
-    } else {
-        // For other formats, we'd need conversion, but for now just error
-        LOG_ERROR("❌ Unsupported image format: %s (only BMP supported for e-ink)", image_path);
-        free(BlackImage);
-        return -1;
-    }
+    // Load BMP file using Waveshare's GUI_ReadBmp function
+    LOG_DEBUG("Loading BMP using GUI_ReadBmp: %s", image_path);
+    GUI_ReadBmp(image_path, 0, 0);
     
-    // Display on e-ink using Waveshare method
-    LOG_INFO("🖥️  Sending image to e-ink display...");
-    EPD_7IN5_V2_Display(BlackImage);
+    // Display on e-ink using appropriate method
+    LOG_INFO("🖥️  Sending image to e-ink display (%s refresh)...", refresh_names[refresh_type]);
+    
+    if (refresh_type == REFRESH_PARTIAL) {
+        // For partial refresh, update entire screen (could be optimized to update specific regions)
+        EPD_7IN5_V2_Display_Part(BlackImage, 0, 0, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
+    } else {
+        // For full and fast refresh, use standard display method
+        EPD_7IN5_V2_Display(BlackImage);
+    }
     
     // Cleanup
     free(BlackImage);
     
-    LOG_INFO("✅ Image displayed successfully on e-ink");
+    LOG_INFO("✅ Image displayed successfully on e-ink (%s refresh)", refresh_names[refresh_type]);
     return 0;
+}
+
+/**
+ * Display BMP image on e-ink screen (default: full refresh)
+ * Returns: 0 on success, -1 on failure
+ */
+int display_image_on_eink(const char *image_path) {
+    return display_image_on_eink_with_refresh_type(image_path, REFRESH_FULL);
 }
 
 // ====================== PARTIAL DISPLAY FUNCTIONALITY ======================
 
-// Global variables for partial refresh
-static UBYTE *time_image_buffer = NULL;
-static int partial_display_initialized = 0;
-
-// Time display position in header section (matches dashboard_render.c layout)
-// Time is centered at HEADER_X + HEADER_WIDTH/2, HEADER_Y + 65
-// That's 5 + 470/2 = 240, 5 + 65 = 70
-#define TIME_X 190          // X position for time in header (centered around 240)
-#define TIME_Y 60           // Y position for time in header  
-#define TIME_WIDTH 100      // Width of time display area
-#define TIME_HEIGHT 30      // Height of time display area
-
+/**
+ * Initialize partial display system for fast time updates
+ * Returns: 0 on success, -1 on failure
+ */
 int init_partial_display(void) {
     if (partial_display_initialized) {
         return 0; // Already initialized
@@ -244,16 +380,22 @@ int init_partial_display(void) {
         return -1;
     }
     
-    // Allocate image buffer for time display area (with proper alignment)
-    UDOUBLE image_size = ((TIME_WIDTH % 8 == 0) ? (TIME_WIDTH / 8) : (TIME_WIDTH / 8 + 1)) * TIME_HEIGHT;
-    if ((time_image_buffer = (UBYTE *)malloc(image_size)) == NULL) {
-        LOG_ERROR("❌ Failed to allocate memory for time image buffer");
+    // Calculate buffer size for time display area (with proper 8-bit alignment)
+    UDOUBLE image_size = ((TIME_DISPLAY_WIDTH % 8 == 0) ? 
+                          (TIME_DISPLAY_WIDTH / 8) : 
+                          (TIME_DISPLAY_WIDTH / 8 + 1)) * TIME_DISPLAY_HEIGHT;
+    
+    time_image_buffer = (UBYTE *)malloc(image_size);
+    if (!time_image_buffer) {
+        LOG_ERROR("❌ Failed to allocate memory for time image buffer (%lu bytes)", image_size);
         return -1;
     }
-    LOG_DEBUG("Allocated %d bytes for time image buffer (%dx%d)", image_size, TIME_WIDTH, TIME_HEIGHT);
+    
+    LOG_DEBUG("Allocated %lu bytes for time image buffer (%dx%d)", 
+              image_size, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
     
     // Initialize paint library with time buffer
-    Paint_NewImage(time_image_buffer, TIME_WIDTH, TIME_HEIGHT, 0, WHITE);
+    Paint_NewImage(time_image_buffer, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT, 0, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -262,14 +404,21 @@ int init_partial_display(void) {
     return 0;
 }
 
+/**
+ * Refresh time display using partial e-ink update
+ * Returns: 0 on success, -1 on failure
+ */
 int refresh_time_partial(void) {
+    // Auto-initialize if not already done
     if (!partial_display_initialized) {
-        LOG_ERROR("⚠️  Partial display not initialized, initializing now...");
+        LOG_DEBUG("⚠️  Partial display not initialized, initializing now...");
+        
         // Ensure hardware is initialized first
         if (!eink_hardware_initialized && init_eink_hardware() != 0) {
             LOG_ERROR("❌ Failed to initialize e-ink hardware for partial refresh");
             return -1;
         }
+        
         if (init_partial_display() != 0) {
             return -1;
         }
@@ -278,26 +427,41 @@ int refresh_time_partial(void) {
     // Get current time
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
+    if (!tm_info) {
+        LOG_ERROR("❌ Failed to get current time");
+        return -1;
+    }
     
     // Format time string
     char time_str[16];
-    strftime(time_str, sizeof(time_str), "%H:%M", tm_info);
+    if (strftime(time_str, sizeof(time_str), "%H:%M", tm_info) == 0) {
+        LOG_ERROR("❌ Failed to format time string");
+        return -1;
+    }
     
     // Clear the time display area in buffer
     Paint_Clear(WHITE);
     
+    // Calculate centered position for time text
+    int text_width_approx = TIME_STRING_LENGTH * TIME_FONT_CHAR_WIDTH;
+    int text_x = (TIME_DISPLAY_WIDTH - text_width_approx) / 2;
+    int text_y = 5; // Small margin from top
+    
     // Draw the updated time (centered in buffer)
-    // Font20 is about 14 pixels wide per character, "HH:MM" is 5 characters
-    int text_width_approx = 5 * 14;
-    int text_x = (TIME_WIDTH - text_width_approx) / 2;
-    Paint_DrawString_EN(text_x, 5, time_str, &Font20, WHITE, BLACK);
+    Paint_DrawString_EN(text_x, text_y, time_str, &Font20, WHITE, BLACK);
     
     // Perform partial refresh of the time area only
-    EPD_7IN5_V2_Display_Part(time_image_buffer, TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT);
+    EPD_7IN5_V2_Display_Part(time_image_buffer, 
+                             TIME_DISPLAY_X, TIME_DISPLAY_Y, 
+                             TIME_DISPLAY_X + TIME_DISPLAY_WIDTH, 
+                             TIME_DISPLAY_Y + TIME_DISPLAY_HEIGHT);
     
     return 0;
 }
 
+/**
+ * Cleanup partial display resources
+ */
 void cleanup_partial_display(void) {
     if (partial_display_initialized) {
         LOG_INFO("🧹 Cleaning up partial display resources...");
@@ -313,6 +477,10 @@ void cleanup_partial_display(void) {
     }
 }
 
+/**
+ * Check if partial display is available and initialized
+ * Returns: 1 if available, 0 if not available
+ */
 int is_partial_display_available(void) {
     return partial_display_initialized;
 }

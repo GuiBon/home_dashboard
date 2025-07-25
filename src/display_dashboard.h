@@ -16,8 +16,16 @@ int generate_dashboard_bmp(const char *filename, time_t display_date,
 int init_eink_hardware(void);
 void cleanup_eink_hardware(void);
 
+// E-ink display refresh types
+typedef enum {
+    REFRESH_FULL,    // Full refresh - best quality, ~10-15 seconds (for menu/calendar updates)
+    REFRESH_FAST,    // Fast refresh - faster update, ~2-3 seconds (for weather updates)
+    REFRESH_PARTIAL  // Partial refresh - region update, ~1-2 seconds (for time updates)
+} RefreshType;
+
 // E-ink display functions
 int display_image_on_eink(const char *image_path);
+int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType refresh_type);
 
 // Partial e-ink display functionality for time updates
 // Uses Waveshare 7.5" V2 e-paper display for fast partial refresh of time display

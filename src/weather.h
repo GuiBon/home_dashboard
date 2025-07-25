@@ -42,4 +42,7 @@ WeatherClient* weather_client_init(const char* api_base_url, double latitude, do
 void weather_client_free(WeatherClient *client);
 int get_weather_data(WeatherClient *client, WeatherData *data);
 
+// Weather data comparison
+int weather_data_changed(const WeatherData *current, const WeatherData *previous);
+
 #endif // WEATHER_H
