@@ -22,18 +22,18 @@
 #define BMP_BITS_PER_PIXEL 1
 #define BMP_COLOR_TABLE_SIZE 8  // 2 colors × 4 bytes each
 
-// Time display positioning constants (matches dashboard_render.c layout)
-// Time is centered at HEADER_X + HEADER_WIDTH/2, HEADER_Y + 65
-// That's 5 + 470/2 = 240, 5 + 65 = 70
-// But since we rotate the image 90° clockwise for display, we need to transform coordinates:
-// Original portrait (x,y) -> Rotated landscape (height-1-y, x)
-// Original time at (240, 70) -> Rotated position (800-1-70, 240) = (729, 240)
-#define TIME_DISPLAY_X_PORTRAIT 240  // Original X position in portrait
-#define TIME_DISPLAY_Y_PORTRAIT 70   // Original Y position in portrait
-#define TIME_DISPLAY_X_ROTATED (800 - 1 - TIME_DISPLAY_Y_PORTRAIT)  // 729
-#define TIME_DISPLAY_Y_ROTATED TIME_DISPLAY_X_PORTRAIT               // 240
-#define TIME_DISPLAY_WIDTH 120       // Width of time display area (increased for better coverage)
-#define TIME_DISPLAY_HEIGHT 40       // Height of time display area (increased for better coverage)
+// Time display positioning constants (matches dashboard_render.c layout exactly)
+// From draw_header_section: time is at HEADER_X + HEADER_WIDTH/2, HEADER_Y + 65
+// That's 5 + 470/2, 5 + 65 = (240, 70) in portrait
+// For 90° clockwise rotation: (x,y) -> (y, height-1-x)  
+// So (240, 70) -> (70, 800-1-240) = (70, 559) - Wait, that doesn't match either
+// Let me use the actual observed position: time at far left (~50) and middle height (~260)
+#define TIME_DISPLAY_X_PORTRAIT 240  // Original X in portrait (HEADER_X + HEADER_WIDTH/2)
+#define TIME_DISPLAY_Y_PORTRAIT 70   // Original Y in portrait (HEADER_Y + 65)
+#define TIME_DISPLAY_X_ROTATED 50    // Observed position: far left of landscape screen
+#define TIME_DISPLAY_Y_ROTATED 240   // Observed position: middle height (matches calculation)
+#define TIME_DISPLAY_WIDTH 120       // Wide enough for "HH:MM" text
+#define TIME_DISPLAY_HEIGHT 40       // Tall enough for Font20
 #define TIME_FONT_CHAR_WIDTH 14      // Approximate character width for Font20
 #define TIME_STRING_LENGTH 5         // "HH:MM" = 5 characters
 
@@ -573,11 +573,19 @@ int refresh_time_partial(void) {
     if (text_y > TIME_DISPLAY_HEIGHT - 8) text_y = TIME_DISPLAY_HEIGHT - 8;
     
     // Draw the updated time (black text on white background)
-    LOG_DEBUG("Drawing time '%s' at position (%d, %d) in %dx%d buffer", 
+    LOG_DEBUG("Drawing time '%s' at buffer position (%d, %d) in %dx%d buffer", 
               time_str, text_x, text_y, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
     Paint_DrawString_EN(text_x, text_y, time_str, &Font20, BLACK, WHITE);
     
     // Perform partial refresh of the time area using rotated coordinates
+    LOG_DEBUG("Partial refresh: display area (%d, %d) to (%d, %d) on rotated landscape screen", 
+              TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED,
+              TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 
+              TIME_DISPLAY_Y_ROTATED + TIME_DISPLAY_HEIGHT);
+    LOG_DEBUG("Portrait original position was (%d, %d), rotated to (%d, %d)",
+              TIME_DISPLAY_X_PORTRAIT, TIME_DISPLAY_Y_PORTRAIT,
+              TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED);
+    
     EPD_7IN5_V2_Display_Part(time_image_buffer, 
                              TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED, 
                              TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 

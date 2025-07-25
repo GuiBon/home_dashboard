@@ -481,12 +481,27 @@ void* clock_updater(void *arg) {
         }
         
         if (orch->running) {
-            // Update time display using partial refresh (only in non-debug mode)
-            if (!orch->debug && is_partial_display_available()) {
-                if (refresh_time_partial() == 0) {
-                    LOG_DEBUG("⏰ Time display updated via partial refresh: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
+            // Use fast refresh for time updates instead of partial refresh
+            // This ensures proper orientation and positioning with rotation
+            if (!orch->debug) {
+                LOG_DEBUG("⏰ Time changed: %02d:%02d - triggering fast refresh", tm_now->tm_hour, tm_now->tm_min);
+                
+                // Generate and display updated dashboard with current time using fast refresh
+                const char *temp_image = "dashboard_time_update.bmp";
+                time_t current_time = time(NULL);
+                
+                const WeatherData *weather_ptr = orch->status.weather_available ? &orch->weather_data : NULL;
+                const MenuData *menu_ptr = orch->status.menu_available ? &orch->menu_data : NULL;
+                const CalendarData *calendar_ptr = orch->status.calendar_available ? &orch->calendar_data : NULL;
+                
+                if (generate_dashboard_bmp(temp_image, current_time, weather_ptr, menu_ptr, calendar_ptr)) {
+                    if (display_image_on_eink_with_refresh_type(temp_image, REFRESH_FAST) == 0) {
+                        LOG_DEBUG("✅ Time updated successfully via fast refresh");
+                    } else {
+                        LOG_ERROR("❌ Failed to update time display via fast refresh");
+                    }
                 } else {
-                    LOG_ERROR("❌ Failed to update time display via partial refresh");
+                    LOG_ERROR("❌ Failed to generate BMP for time update");
                 }
             } else {
                 LOG_DEBUG("⏰ Clock updated: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
