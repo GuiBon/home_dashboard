@@ -56,7 +56,8 @@ WAVESHARE_SOURCES = $(WAVESHARE_DIR)/Config/DEV_Config.c \
                     $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c \
                     $(WAVESHARE_DIR)/GUI/GUI_Paint.c \
                     $(WAVESHARE_DIR)/GUI/GUI_BMPfile.c \
-                    $(WAVESHARE_DIR)/Fonts/font20.c
+                    $(WAVESHARE_DIR)/Fonts/font20.c \
+                    $(WAVESHARE_DIR)/Fonts/font24.c
 
 # ====================== BUILD TARGETS ======================
 
@@ -113,6 +114,16 @@ test: $(TARGET)
 	@echo "Running dashboard in debug mode..."
 	@cd $(BUILD_DIR) && ./dashboard --debug
 
+# Build and run display time test
+time-test: $(BUILD_DIR)/display_time_test
+	@echo "Running display time test..."
+	@cd $(BUILD_DIR) && ./display_time_test
+
+# Build display time test binary
+$(BUILD_DIR)/display_time_test: $(SRC_DIR)/display_time_test.c $(addprefix $(BUILD_DIR)/, $(notdir $(WAVESHARE_SOURCES:.c=.o)))
+	@echo "Building display_time_test..."
+	@$(CC) $(WAVESHARE_CFLAGS) -o $@ $(SRC_DIR)/display_time_test.c $(addprefix $(BUILD_DIR)/, $(notdir $(WAVESHARE_SOURCES:.c=.o))) $(LIBS)
+
 # Show build configuration
 config:
 	@echo "Build Configuration:"
@@ -128,8 +139,9 @@ help:
 	@echo "  all          - Build the dashboard (default)"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  test         - Build and run in debug mode"
+	@echo "  time-test    - Build and run display time test"
 	@echo "  install-deps - Install system dependencies"
 	@echo "  config       - Show build configuration"
 	@echo "  help         - Show this help message"
 
-.PHONY: all clean install-deps test config help
+.PHONY: all clean install-deps test time-test config help
