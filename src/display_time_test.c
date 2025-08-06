@@ -70,7 +70,7 @@ int main(void) {
         }
 		// With ROTATE_270, coordinates need adjustment for portrait viewing
 		// Time should appear at top of portrait display
-		EPD_7IN5_V2_Display_Part(BlackImage, 400, 150, 400 + Font20.Height, 150 + Font20.Width * 7);
+		EPD_7IN5_V2_Display_Part(BlackImage, 0, 150, 0 + Font20.Height, 150 + Font20.Width * 7);
         DEV_Delay_ms(500);//Analog clock 1s
     }
 
