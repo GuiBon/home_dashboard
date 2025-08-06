@@ -549,8 +549,21 @@ static void draw_time(struct tm *timeinfo) {
     // Clear the time area first
     clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
 
-    // Draw time centered (large font)
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+    // DEBUG: Draw a black rectangle to see if drawing works at all
+    Paint_DrawRectangle(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+    
+    // DEBUG: Try drawing text with different fonts to see what works
+    // Try Font20 first (simpler)
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font20, WHITE, BLACK);
+    
+    // Also try Font24 below it
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 50, time_str, &Font24, WHITE, BLACK);
+    
+    // DEBUG: Draw some pixels directly to test basic drawing
+    for (int i = 0; i < 20; i++) {
+        Paint_SetPixel(TIME_X + 10 + i, TIME_Y + 10, BLACK);
+        Paint_SetPixel(TIME_X + 10, TIME_Y + 10 + i, BLACK);
+    }
 }
 
 // Helper function for partial update (copied exactly from display_time_test.c)
@@ -569,11 +582,22 @@ static void partial_update_display(void) {
     int native_width = TIME_HEIGHT;
     int native_height = TIME_WIDTH;
 
+    // DEBUG: Print the coordinate calculation
+    printf("DEBUG: Portrait: TIME_X=%d, TIME_Y=%d, TIME_WIDTH=%d, TIME_HEIGHT=%d\n", 
+           TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+    printf("DEBUG: Native calculation: %d - (%d + %d) = %d\n", 
+           EPD_HEIGHT_NATIVE, TIME_Y, TIME_HEIGHT, native_x);
+    printf("DEBUG: Native coords: x=%d, y=%d, w=%d, h=%d\n", 
+           native_x, native_y, native_width, native_height);
+
     // Ensure coordinates are within bounds
     if (native_x < 0) native_x = 0;
     if (native_y < 0) native_y = 0;
     if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
     if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
+
+    printf("DEBUG: Final native coords: x=%d, y=%d, w=%d, h=%d\n", 
+           native_x, native_y, native_width, native_height);
 
     // Perform partial update
     EPD_7IN5_V2_Display_Part(time_image_buffer, native_x, native_y, native_x + native_width, native_y + native_height);
