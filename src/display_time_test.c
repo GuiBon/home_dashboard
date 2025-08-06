@@ -29,15 +29,6 @@ static int partial_update_count = 0;
 
 // Function to initialize the display buffer for portrait mode
 int init_portrait_display() {
-    // Calculate image size based on native display dimensions
-    ImageSize = ((EPD_WIDTH_NATIVE % 8 == 0) ? (EPD_WIDTH_NATIVE / 8) : (EPD_WIDTH_NATIVE / 8 + 1)) * EPD_HEIGHT_NATIVE;
-
-    ImageBuffer = (UBYTE *)malloc(ImageSize);
-    if (ImageBuffer == NULL) {
-        printf("Failed to allocate memory for image buffer\r\n");
-        return -1;
-    }
-
     // Initialize partial mode
     EPD_7IN5_V2_Init_Part();
     // Initialize paint with native dimensions but rotate 270 degrees
@@ -131,6 +122,17 @@ int main(void) {
     printf("Initializing e-Paper display...\r\n");
     EPD_7IN5_V2_Init();
     EPD_7IN5_V2_Clear();
+
+    // Calculate image size based on native display dimensions
+    ImageSize = ((EPD_WIDTH_NATIVE % 8 == 0) ? (EPD_WIDTH_NATIVE / 8) : (EPD_WIDTH_NATIVE / 8 + 1)) * EPD_HEIGHT_NATIVE;
+
+    ImageBuffer = (UBYTE *)malloc(ImageSize);
+    if (ImageBuffer == NULL) {
+        printf("Failed to allocate memory for image buffer\r\n");
+        return -1;
+    }
+
+    Paint_NewImage(ImageBuffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
 
     // Initialize display buffer
     if (init_portrait_display() != 0) {
