@@ -35,7 +35,8 @@ int main(void) {
     Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
 
     EPD_7IN5_V2_Init_Part();
-	Paint_NewImage(BlackImage, Font20.Width * 7, Font20.Height, ROTATE_270, WHITE);
+	// With ROTATE_270, swap width and height to accommodate rotated text
+	Paint_NewImage(BlackImage, Font20.Height, Font20.Width * 7, ROTATE_270, WHITE);
     Debug("Partial refresh\r\n");
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
