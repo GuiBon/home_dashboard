@@ -540,32 +540,29 @@ static void draw_time(struct tm *timeinfo) {
     // Format time in 24-hour format (HH:MM)
     snprintf(time_str, sizeof(time_str), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
 
-    // Use exact same constants as display_time_test.c
-    #define TIME_X      80
-    #define TIME_Y      100
-    #define TIME_WIDTH  320
-    #define TIME_HEIGHT 100
-
     printf("DEBUG: draw_time called with time: %s\n", time_str);
 
-    // Test FIRST: Draw something OUTSIDE the clear area to see if drawing works at all
-    printf("DEBUG: Drawing test area OUTSIDE clear zone...\n");
-    // Draw at coordinates that won't be cleared
-    for (int i = 0; i < 100; i++) {
-        for (int j = 0; j < 100; j++) {
-            Paint_SetPixel(TIME_X + 400, TIME_Y + 200 + j, BLACK);  // Way outside clear area
-        }
-    }
-    printf("DEBUG: After drawing outside test area\n");
-
-    // Now clear the time area 
-    clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
-    printf("DEBUG: After clear_area\n");
-
-    // Try drawing BEFORE clearing to test order
-    printf("DEBUG: Drawing inside cleared area...\n");
-    Paint_DrawRectangle(TIME_X + 10, TIME_Y + 10, TIME_X + 50, TIME_Y + 50, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    printf("DEBUG: After drawing inside cleared area\n");
+    // Now we know drawing works! Let's try drawing the time at the actual top of the screen
+    // Since we saw the black square at top-right, let's try coordinates that would put time at top-left
+    
+    // Clear the entire screen first
+    Paint_Clear(WHITE);
+    printf("DEBUG: Cleared entire screen\n");
+    
+    // Try drawing time at various positions to find the right spot
+    // Position 1: Top-left area (should appear at top of landscape screen)
+    printf("DEBUG: Drawing time at position 1 (top area)...\n");
+    Paint_DrawString_EN(50, 50, time_str, &Font24, WHITE, BLACK);
+    
+    // Position 2: Different top area
+    printf("DEBUG: Drawing time at position 2 (different top)...\n");
+    Paint_DrawString_EN(100, 100, time_str, &Font20, WHITE, BLACK);
+    
+    // Position 3: Draw a border around where we think the time should be
+    printf("DEBUG: Drawing border around expected time area...\n");
+    Paint_DrawRectangle(40, 40, 200, 80, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+    
+    printf("DEBUG: All drawing completed\n");
 }
 
 // Helper function for partial update (copied exactly from display_time_test.c)
