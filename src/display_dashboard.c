@@ -533,7 +533,7 @@ static void clear_area(int x, int y, int width, int height) {
     Paint_ClearWindows(x, y, x + width, y + height, WHITE);
 }
 
-// Helper function to draw time - NO CLEARING, just drawing to test
+// Helper function to draw time (now we know drawing works!)
 static void draw_time(struct tm *timeinfo) {
     char time_str[8];
 
@@ -542,17 +542,19 @@ static void draw_time(struct tm *timeinfo) {
 
     printf("DEBUG: draw_time called with time: %s\n", time_str);
 
-    // DON'T clear anything - just try to draw on top of existing display
-    // This way we can see if drawing works at all
+    // Use the exact same coordinates as display_time_test.c
+    #define TIME_X      80
+    #define TIME_Y      100
+    #define TIME_WIDTH  320
+    #define TIME_HEIGHT 100
+
+    // Clear only the time area
+    clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+    printf("DEBUG: Cleared time area\n");
     
-    printf("DEBUG: Drawing large black rectangle (should be very visible)...\n");
-    Paint_DrawRectangle(50, 50, 200, 150, BLACK, DOT_PIXEL_3X3, DRAW_FILL_FULL);
-    
-    printf("DEBUG: Drawing time text over black rectangle...\n");
-    Paint_DrawString_EN(60, 80, time_str, &Font24, BLACK, WHITE);  // White text on black background
-    
-    printf("DEBUG: Drawing another test rectangle at different position...\n");
-    Paint_DrawRectangle(300, 200, 450, 300, BLACK, DOT_PIXEL_2X2, DRAW_FILL_FULL);
+    // Draw time exactly like display_time_test.c
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+    printf("DEBUG: Drew time text\n");
     
     printf("DEBUG: All drawing completed\n");
 }
@@ -599,39 +601,40 @@ int refresh_time_partial(void) {
     
     printf("DEBUG: Starting refresh_time_partial\n");
     
-    // DON'T initialize partial mode or create buffer - just try to draw directly to see what happens
-    
-    printf("DEBUG: About to draw time WITHOUT buffer selection...\n");
-    
-    // Try drawing WITHOUT selecting any buffer to see if that's the issue
-    draw_time(tm_info);
-    
-    printf("DEBUG: About to do FULL display update...\n");
-    
-    // Instead of partial update, do FULL display to see everything
-    // Create a temporary buffer for full display
-    UDOUBLE image_size = ((800 % 8 == 0) ? (800 / 8) : (800 / 8 + 1)) * 480;
-    UBYTE *test_buffer = (UBYTE *)malloc(image_size);
-    if (!test_buffer) {
-        LOG_ERROR("❌ Failed to allocate test buffer");
-        return -1;
+    // Initialize buffer properly (like the working version)
+    if (!time_image_buffer) {
+        UDOUBLE image_size = ((800 % 8 == 0) ? (800 / 8) : (800 / 8 + 1)) * 480;
+        time_image_buffer = (UBYTE *)malloc(image_size);
+        if (!time_image_buffer) {
+            LOG_ERROR("❌ Failed to allocate time buffer");
+            return -1;
+        }
+        
+        // Initialize exactly like the working version
+        Paint_NewImage(time_image_buffer, 800, 480, ROTATE_270, WHITE);
+        
+        // CRITICAL: Do initial full display to establish the buffer state
+        printf("DEBUG: Initializing buffer with full display...\n");
+        EPD_7IN5_V2_Init();
+        Paint_SelectImage(time_image_buffer);
+        Paint_Clear(WHITE);
+        EPD_7IN5_V2_Display(time_image_buffer);
+        
+        printf("DEBUG: Buffer initialized, switching to partial mode...\n");
     }
     
-    // Initialize with default settings
-    Paint_NewImage(test_buffer, 800, 480, ROTATE_270, WHITE);
-    Paint_SelectImage(test_buffer);
-    Paint_Clear(WHITE);
+    // Switch to partial mode for updates
+    EPD_7IN5_V2_Init_Part();
     
-    printf("DEBUG: Drawing to test buffer...\n");
+    // Select our buffer and draw
+    Paint_SelectImage(time_image_buffer);
+    printf("DEBUG: Drawing time to established buffer...\n");
     draw_time(tm_info);
     
-    printf("DEBUG: Displaying test buffer...\n");
-    EPD_7IN5_V2_Init();
-    EPD_7IN5_V2_Display(test_buffer);
+    printf("DEBUG: Doing partial update...\n");
+    partial_update_display();
     
-    free(test_buffer);
-    
-    LOG_DEBUG("⏰ Time display updated via full refresh test");
+    LOG_DEBUG("⏰ Time display updated via partial refresh");
     
     return 0;
 }
