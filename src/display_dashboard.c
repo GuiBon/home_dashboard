@@ -502,8 +502,10 @@ int init_partial_display(void) {
         return -1;
     }
     
-    // Calculate buffer size for full display (needed for proper rotation like display_time_test.c)
-    UDOUBLE image_size = ((800 % 8 == 0) ? (800 / 8) : (800 / 8 + 1)) * 480;
+    // Calculate buffer size for time display area (with proper 8-bit alignment)
+    UDOUBLE image_size = ((TIME_DISPLAY_WIDTH % 8 == 0) ? 
+                          (TIME_DISPLAY_WIDTH / 8) : 
+                          (TIME_DISPLAY_WIDTH / 8 + 1)) * TIME_DISPLAY_HEIGHT;
     
     time_image_buffer = (UBYTE *)malloc(image_size);
     if (!time_image_buffer) {
@@ -511,10 +513,11 @@ int init_partial_display(void) {
         return -1;
     }
     
-    LOG_DEBUG("Allocated %lu bytes for full display buffer (800x480 with ROTATE_270)", image_size);
+    LOG_DEBUG("Allocated %lu bytes for time image buffer (%dx%d)", 
+              image_size, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
     
-    // Initialize paint library with full display dimensions and ROTATE_270 (like display_time_test.c)
-    Paint_NewImage(time_image_buffer, 800, 480, ROTATE_270, WHITE);
+    // Initialize paint library with time buffer
+    Paint_NewImage(time_image_buffer, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT, 0, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -524,77 +527,25 @@ int init_partial_display(void) {
 }
 
 /**
- * Refresh time display using partial e-ink update with proper rotation
- * Based on working display_time_test.c approach
+ * Refresh time display using partial e-ink update with Cairo-rendered rotated text
  * Returns: 0 on success, -1 on failure
  */
-// Helper function to clear a specific area (copied from display_time_test.c)
-static void clear_area(int x, int y, int width, int height) {
-    Paint_ClearWindows(x, y, x + width, y + height, WHITE);
-}
-
-// Helper function to draw time - test different drawing methods
-static void draw_time(struct tm *timeinfo) {
-    char time_str[8];
-
-    // Format time in 24-hour format (HH:MM)
-    snprintf(time_str, sizeof(time_str), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
-
-    printf("DEBUG: draw_time called with time: %s\n", time_str);
-
-    // Use the exact same coordinates as display_time_test.c
-    #define TIME_X      80
-    #define TIME_Y      100
-    #define TIME_WIDTH  320
-    #define TIME_HEIGHT 100
-
-    // Clear only the time area
-    clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
-    printf("DEBUG: Cleared time area\n");
-    
-    // TEST 1: Try large filled rectangles to see if they show up in partial mode
-    printf("DEBUG: Drawing large test rectangles...\n");
-    Paint_DrawRectangle(TIME_X + 10, TIME_Y + 10, TIME_X + 100, TIME_Y + 50, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    Paint_DrawRectangle(TIME_X + 120, TIME_Y + 10, TIME_X + 210, TIME_Y + 50, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    
-    // TEST 2: Try drawing individual characters instead of string
-    printf("DEBUG: Trying Font20 instead of Font24...\n");
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 60, time_str, &Font20, WHITE, BLACK);
-    
-    // TEST 3: Try drawing manual pixels in text pattern
-    printf("DEBUG: Drawing manual pixel pattern...\n");
-    for (int i = 0; i < 30; i++) {
-        for (int j = 0; j < 5; j++) {
-            Paint_SetPixel(TIME_X + 50 + i, TIME_Y + 80 + j, BLACK);
+int refresh_time_partial(void) {
+    // Auto-initialize if not already done
+    if (!partial_display_initialized) {
+        LOG_DEBUG("⚠️  Partial display not initialized, initializing now...");
+        
+        // Ensure hardware is initialized first
+        if (!eink_hardware_initialized && init_eink_hardware() != 0) {
+            LOG_ERROR("❌ Failed to initialize e-ink hardware for partial refresh");
+            return -1;
+        }
+        
+        if (init_partial_display() != 0) {
+            return -1;
         }
     }
     
-    printf("DEBUG: All drawing completed\n");
-}
-
-// Helper function for partial update - UPDATE 90% OF SCREEN for debugging
-static void partial_update_display(void) {
-    #define EPD_WIDTH_NATIVE    800
-    #define EPD_HEIGHT_NATIVE   480
-
-    // Update 90% of the screen to see if our drawing is happening elsewhere
-    int margin = 5; // 5% margin on each side
-    int native_x = (EPD_WIDTH_NATIVE * margin) / 100;           // 5% from left
-    int native_y = (EPD_HEIGHT_NATIVE * margin) / 100;         // 5% from top
-    int native_width = EPD_WIDTH_NATIVE - (2 * native_x);      // 90% width
-    int native_height = EPD_HEIGHT_NATIVE - (2 * native_y);    // 90% height
-
-    printf("DEBUG: LARGE partial update region (90%% of screen): x=%d, y=%d, w=%d, h=%d\n", 
-           native_x, native_y, native_width, native_height);
-    printf("DEBUG: This should reveal any drawing anywhere on screen\n");
-
-    // Perform partial update on 90% of screen
-    EPD_7IN5_V2_Display_Part(time_image_buffer, native_x, native_y, native_x + native_width, native_y + native_height);
-    
-    printf("DEBUG: Large partial update completed\n");
-}
-
-int refresh_time_partial(void) {
     // Get current time
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
@@ -603,42 +554,140 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    printf("DEBUG: Starting refresh_time_partial\n");
-    
-    // Initialize buffer properly (like the working version)
-    if (!time_image_buffer) {
-        UDOUBLE image_size = ((800 % 8 == 0) ? (800 / 8) : (800 / 8 + 1)) * 480;
-        time_image_buffer = (UBYTE *)malloc(image_size);
-        if (!time_image_buffer) {
-            LOG_ERROR("❌ Failed to allocate time buffer");
-            return -1;
-        }
-        
-        // Initialize exactly like the working version
-        Paint_NewImage(time_image_buffer, 800, 480, ROTATE_270, WHITE);
-        
-        // CRITICAL: Do initial full display to establish the buffer state
-        printf("DEBUG: Initializing buffer with full display...\n");
-        EPD_7IN5_V2_Init();
-        Paint_SelectImage(time_image_buffer);
-        Paint_Clear(WHITE);
-        EPD_7IN5_V2_Display(time_image_buffer);
-        
-        printf("DEBUG: Buffer initialized, switching to partial mode...\n");
+    // Format time string
+    char time_str[16];
+    if (strftime(time_str, sizeof(time_str), "%H:%M", tm_info) == 0) {
+        LOG_ERROR("❌ Failed to format time string");
+        return -1;
     }
     
-    // Switch to partial mode for updates
-    EPD_7IN5_V2_Init_Part();
+    // Create Cairo surface for rotated text rendering
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo surface for time rendering");
+        return -1;
+    }
     
-    // Select our buffer and draw
-    Paint_SelectImage(time_image_buffer);
-    printf("DEBUG: Drawing time to established buffer...\n");
-    draw_time(tm_info);
+    cairo_t *cr = cairo_create(surface);
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo context for time rendering");
+        cairo_surface_destroy(surface);
+        return -1;
+    }
     
-    printf("DEBUG: Doing partial update...\n");
-    partial_update_display();
+    // Clear background to white
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    cairo_paint(cr);
     
-    LOG_DEBUG("⏰ Time display updated via partial refresh");
+    // Set up font (use Liberation Sans Bold for time display)
+    cairo_select_font_face(cr, "Liberation Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, 24); // Slightly smaller font to fit better in rotated space
+    
+    // Set text color to black
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    
+    // Get text extents for centering
+    cairo_text_extents_t extents;
+    cairo_text_extents(cr, time_str, &extents);
+    
+    LOG_DEBUG("Text '%s' extents: width=%.1f, height=%.1f, x_bearing=%.1f, y_bearing=%.1f", 
+              time_str, extents.width, extents.height, extents.x_bearing, extents.y_bearing);
+    
+    // Calculate center position
+    double center_x = TIME_DISPLAY_WIDTH / 2.0;
+    double center_y = TIME_DISPLAY_HEIGHT / 2.0;
+    
+    // Move to center, rotate 90° counter-clockwise for bottom-to-top text, then position text
+    cairo_save(cr);
+    cairo_translate(cr, center_x, center_y);
+    cairo_rotate(cr, -M_PI / 2.0); // 90° counter-clockwise rotation (bottom to top)
+    
+    // Position text relative to the rotation center (adjust for proper centering)
+    cairo_move_to(cr, -extents.width / 2.0 - extents.x_bearing, -extents.y_bearing / 2.0);
+    cairo_show_text(cr, time_str);
+    cairo_restore(cr);
+    
+    LOG_DEBUG("Rendered rotated time text in %dx%d Cairo surface", TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
+    
+    // Ensure all drawing is completed
+    cairo_surface_flush(surface);
+    
+    // Convert Cairo surface to Waveshare paint buffer
+    unsigned char *cairo_data = cairo_image_surface_get_data(surface);
+    int cairo_stride = cairo_image_surface_get_stride(surface);
+    
+    // Clear Waveshare buffer
+    Paint_Clear(WHITE);
+    
+    // Convert Cairo ARGB32 to Waveshare 1-bit format with Floyd-Steinberg dithering
+    float *error_buffer = calloc(TIME_DISPLAY_WIDTH + 2, sizeof(float));
+    if (!error_buffer) {
+        LOG_ERROR("❌ Failed to allocate error buffer for time dithering");
+        cairo_destroy(cr);
+        cairo_surface_destroy(surface);
+        return -1;
+    }
+    
+    for (int y = 0; y < TIME_DISPLAY_HEIGHT; y++) {
+        // Reset error buffer for new row
+        for (int i = 0; i < TIME_DISPLAY_WIDTH + 2; i++) {
+            error_buffer[i] = 0.0f;
+        }
+        
+        for (int x = 0; x < TIME_DISPLAY_WIDTH; x++) {
+            int cairo_offset = y * cairo_stride + x * 4;
+            
+            // Get RGB values from Cairo ARGB32 format: B-G-R-A
+            unsigned char blue = cairo_data[cairo_offset];
+            unsigned char green = cairo_data[cairo_offset + 1];
+            unsigned char red = cairo_data[cairo_offset + 2];
+            
+            // Convert to grayscale
+            float gray = 0.299f * red + 0.587f * green + 0.114f * blue;
+            
+            // Apply accumulated error from previous pixels
+            gray += error_buffer[x + 1];
+            
+            // Clamp to valid range
+            if (gray < 0) gray = 0;
+            if (gray > 255) gray = 255;
+            
+            // Quantize: > 128 = white (255), <= 128 = black (0)
+            int quantized = (gray > 128) ? 255 : 0;
+            
+            // Calculate quantization error
+            float error = gray - quantized;
+            
+            // Distribute error to neighboring pixels (Floyd-Steinberg pattern)
+            if (x + 1 < TIME_DISPLAY_WIDTH) {
+                error_buffer[x + 2] += error * 7.0f / 16.0f; // Right pixel
+            }
+            
+            // Set pixel in Waveshare buffer
+            if (quantized == 0) {
+                Paint_SetPixel(x, y, BLACK);
+            } else {
+                Paint_SetPixel(x, y, WHITE);
+            }
+        }
+    }
+    
+    free(error_buffer);
+    
+    // Cleanup Cairo objects
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    
+    // Perform partial refresh at observed coordinates
+    LOG_DEBUG("Partial refresh: rotated time '%s' at display area (%d, %d) to (%d, %d)", 
+              time_str, TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED,
+              TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 
+              TIME_DISPLAY_Y_ROTATED + TIME_DISPLAY_HEIGHT);
+    
+    EPD_7IN5_V2_Display_Part(time_image_buffer, 
+                             TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED, 
+                             TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 
+                             TIME_DISPLAY_Y_ROTATED + TIME_DISPLAY_HEIGHT);
     
     return 0;
 }

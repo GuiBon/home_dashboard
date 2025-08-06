@@ -58,11 +58,18 @@ void draw_time(struct tm *timeinfo) {
     // Format time in 24-hour format (HH:MM)
     snprintf(time_str, sizeof(time_str), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
 
+    printf("DEBUG: Drawing time '%s'\r\n", time_str);
+    printf("DEBUG: Clear area: (%d,%d) size %dx%d\r\n", TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+
     // Clear the time area first
     clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
 
+    printf("DEBUG: Drawing text at position (%d,%d)\r\n", TIME_X + 50, TIME_Y + 25);
+
     // Draw time centered (large font)
     Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+    
+    printf("DEBUG: Time drawing completed\r\n");
 }
 
 // Function to perform partial update
@@ -77,11 +84,22 @@ void partial_update_display() {
     UWORD native_width = TIME_HEIGHT;
     UWORD native_height = TIME_WIDTH;
 
+    // DEBUG: Print all coordinate calculations
+    printf("DEBUG: Portrait coordinates: TIME_X=%d, TIME_Y=%d, TIME_WIDTH=%d, TIME_HEIGHT=%d\r\n", 
+           TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+    printf("DEBUG: Native calculation: x=%d-%d-%d=%d, y=%d, w=%d, h=%d\r\n", 
+           EPD_HEIGHT_NATIVE, TIME_Y, TIME_HEIGHT, native_x, native_y, native_width, native_height);
+
     // Ensure coordinates are within bounds
     if (native_x < 0) native_x = 0;
     if (native_y < 0) native_y = 0;
     if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
     if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
+
+    printf("DEBUG: Final native coordinates: x=%d, y=%d, w=%d, h=%d\r\n", 
+           native_x, native_y, native_width, native_height);
+    printf("DEBUG: Update region: (%d,%d) to (%d,%d)\r\n", 
+           native_x, native_y, native_x + native_width, native_y + native_height);
 
     // Perform partial update
     EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
