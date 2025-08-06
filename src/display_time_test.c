@@ -36,7 +36,7 @@ int main(void) {
 
     EPD_7IN5_V2_Init_Part();
 	// With ROTATE_270, swap width and height to accommodate rotated text
-	Paint_NewImage(BlackImage, Font20.Height, Font20.Width * 7, ROTATE_270, WHITE);
+	Paint_NewImage(BlackImage, Font20.Height, Font20.Width * 8, ROTATE_270, WHITE);
     Debug("Partial refresh\r\n");
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
@@ -58,7 +58,7 @@ int main(void) {
         char time_str[8];
         snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 
-        Paint_ClearWindows(0, 0, Font20.Width * 7, Font20.Height, BLACK);
+        Paint_ClearWindows(0, 0, Font20.Width * 8, Font20.Height, BLACK);
         Paint_DrawString_EN(0, 0, &time_str, &Font20, BLACK, WHITE);
         // Paint_DrawTime(0, 0, &sPaint_time, &Font20, BLACK, WHITE);
 
@@ -68,7 +68,7 @@ int main(void) {
         }
 		// With ROTATE_270, coordinates need adjustment for portrait viewing
 		// Time should appear at top of portrait display
-		EPD_7IN5_V2_Display_Part(BlackImage, 100, 200, 100 + Font20.Height, 200 + Font20.Width * 7);
+		EPD_7IN5_V2_Display_Part(BlackImage, 100, 200, 100 + Font20.Height, 200 + Font20.Width * 8);
         DEV_Delay_ms(500);//Analog clock 1s
     }
 
