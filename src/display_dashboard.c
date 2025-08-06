@@ -597,43 +597,41 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Initialize partial mode ONLY when we need it (like display_time_test.c does)
-    LOG_DEBUG("Initializing e-Paper for partial refresh...");
-    EPD_7IN5_V2_Init_Part();
+    printf("DEBUG: Starting refresh_time_partial\n");
     
-    // Ensure we have our buffer - if not, create it like display_time_test.c
-    if (!time_image_buffer) {
-        // Use exact same constants as display_time_test.c
-        #define EPD_WIDTH_NATIVE    800
-        #define EPD_HEIGHT_NATIVE   480
-        
-        // Calculate image size based on native display dimensions (same as display_time_test.c)
-        UDOUBLE image_size = ((EPD_WIDTH_NATIVE % 8 == 0) ? (EPD_WIDTH_NATIVE / 8) : (EPD_WIDTH_NATIVE / 8 + 1)) * EPD_HEIGHT_NATIVE;
-        
-        time_image_buffer = (UBYTE *)malloc(image_size);
-        if (!time_image_buffer) {
-            LOG_ERROR("❌ Failed to allocate memory for time image buffer");
-            return -1;
-        }
-        
-        // Back to ROTATE_270 for portrait viewing - this should make text readable when holding display vertically
-        Paint_NewImage(time_image_buffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_270, WHITE);
-    }
+    // DON'T initialize partial mode or create buffer - just try to draw directly to see what happens
     
-    // CRITICAL: Always select our image buffer before any paint operations
-    Paint_SelectImage(time_image_buffer);
+    printf("DEBUG: About to draw time WITHOUT buffer selection...\n");
     
-    printf("DEBUG: About to draw time...\n");
-    
-    // Update time display using exact same functions as display_time_test.c
+    // Try drawing WITHOUT selecting any buffer to see if that's the issue
     draw_time(tm_info);
     
-    printf("DEBUG: About to do partial update...\n");
+    printf("DEBUG: About to do FULL display update...\n");
     
-    // Use partial update using exact same function as display_time_test.c
-    partial_update_display();
+    // Instead of partial update, do FULL display to see everything
+    // Create a temporary buffer for full display
+    UDOUBLE image_size = ((800 % 8 == 0) ? (800 / 8) : (800 / 8 + 1)) * 480;
+    UBYTE *test_buffer = (UBYTE *)malloc(image_size);
+    if (!test_buffer) {
+        LOG_ERROR("❌ Failed to allocate test buffer");
+        return -1;
+    }
     
-    LOG_DEBUG("⏰ Time display updated via partial refresh: %02d:%02d", tm_info->tm_hour, tm_info->tm_min);
+    // Initialize with default settings
+    Paint_NewImage(test_buffer, 800, 480, ROTATE_270, WHITE);
+    Paint_SelectImage(test_buffer);
+    Paint_Clear(WHITE);
+    
+    printf("DEBUG: Drawing to test buffer...\n");
+    draw_time(tm_info);
+    
+    printf("DEBUG: Displaying test buffer...\n");
+    EPD_7IN5_V2_Init();
+    EPD_7IN5_V2_Display(test_buffer);
+    
+    free(test_buffer);
+    
+    LOG_DEBUG("⏰ Time display updated via full refresh test");
     
     return 0;
 }
