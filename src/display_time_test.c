@@ -32,10 +32,10 @@ int main(void) {
         return -1;
     }
     printf("Paint_NewImage\r\n");
-    Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, ROTATE_270, WHITE);
+    Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
 
     EPD_7IN5_V2_Init_Part();
-	Paint_NewImage(BlackImage, Font20.Width * 7, Font20.Height, ROTATE_270, WHITE);
+	Paint_NewImage(BlackImage, Font20.Height, Font20.Width * 7, ROTATE_270, WHITE);
     Debug("Partial refresh\r\n");
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
@@ -60,14 +60,14 @@ int main(void) {
                 }
             }
         }
-        Paint_ClearWindows(0, 0, Font20.Width * 7, Font20.Height, WHITE);
+        Paint_ClearWindows(0, 0, Font20.Height, Font20.Width * 7, WHITE);
         Paint_DrawTime(0, 0, &sPaint_time, &Font20, WHITE, BLACK);
 
         num = num - 1;
         if(num == 0) {
             break;
         }
-		EPD_7IN5_V2_Display_Part(BlackImage, 150, 80, 150 + Font20.Width * 7, 80 + Font20.Height);
+		EPD_7IN5_V2_Display_Part(BlackImage, 80, 150, 80 + Font20.Height, 150 + Font20.Width * 7);
         DEV_Delay_ms(500);//Analog clock 1s
     }
 
