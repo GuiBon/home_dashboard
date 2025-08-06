@@ -548,28 +548,24 @@ static void draw_time(struct tm *timeinfo) {
 
     printf("DEBUG: draw_time called with time: %s\n", time_str);
 
-    // Clear the time area first
+    // Test FIRST: Draw something OUTSIDE the clear area to see if drawing works at all
+    printf("DEBUG: Drawing test area OUTSIDE clear zone...\n");
+    // Draw at coordinates that won't be cleared
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
+            Paint_SetPixel(TIME_X + 400, TIME_Y + 200 + j, BLACK);  // Way outside clear area
+        }
+    }
+    printf("DEBUG: After drawing outside test area\n");
+
+    // Now clear the time area 
     clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
     printf("DEBUG: After clear_area\n");
 
-    // Test 1: Draw pixels BEFORE clearing to see if they show up
-    printf("DEBUG: Drawing pixels...\n");
-    for (int i = 0; i < 50; i++) {
-        for (int j = 0; j < 50; j++) {
-            Paint_SetPixel(TIME_X + 200 + i, TIME_Y + 10 + j, BLACK);
-        }
-    }
-    printf("DEBUG: After drawing pixels\n");
-
-    // Test 2: Try filling a small rectangle with black
-    printf("DEBUG: Drawing filled rectangle...\n");
-    Paint_DrawRectangle(TIME_X + 20, TIME_Y + 20, TIME_X + 70, TIME_Y + 70, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-    printf("DEBUG: After filled rectangle\n");
-
-    // Test 3: Try outline rectangle
-    printf("DEBUG: Drawing outline rectangle...\n");
-    Paint_DrawRectangle(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    printf("DEBUG: After outline rectangle\n");
+    // Try drawing BEFORE clearing to test order
+    printf("DEBUG: Drawing inside cleared area...\n");
+    Paint_DrawRectangle(TIME_X + 10, TIME_Y + 10, TIME_X + 50, TIME_Y + 50, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    printf("DEBUG: After drawing inside cleared area\n");
 }
 
 // Helper function for partial update (copied exactly from display_time_test.c)
@@ -582,31 +578,21 @@ static void partial_update_display(void) {
     #define EPD_WIDTH_NATIVE    800
     #define EPD_HEIGHT_NATIVE   480
 
-    // Convert portrait coordinates to native coordinates for ROTATE_270
+    printf("DEBUG: Testing FULL SCREEN partial update to see everything...\n");
+    
+    // Try updating the ENTIRE screen to see if our drawing shows up anywhere
+    EPD_7IN5_V2_Display_Part(time_image_buffer, 0, 0, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE);
+    
+    printf("DEBUG: Full screen partial update completed\n");
+    
+    // Original coordinate calculation for reference
     int native_x = EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT);
     int native_y = TIME_X;
     int native_width = TIME_HEIGHT;
     int native_height = TIME_WIDTH;
 
-    // DEBUG: Print the coordinate calculation
-    printf("DEBUG: Portrait: TIME_X=%d, TIME_Y=%d, TIME_WIDTH=%d, TIME_HEIGHT=%d\n", 
-           TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
-    printf("DEBUG: Native calculation: %d - (%d + %d) = %d\n", 
-           EPD_HEIGHT_NATIVE, TIME_Y, TIME_HEIGHT, native_x);
-    printf("DEBUG: Native coords: x=%d, y=%d, w=%d, h=%d\n", 
+    printf("DEBUG: Original calculated region would be: x=%d, y=%d, w=%d, h=%d\n", 
            native_x, native_y, native_width, native_height);
-
-    // Ensure coordinates are within bounds
-    if (native_x < 0) native_x = 0;
-    if (native_y < 0) native_y = 0;
-    if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
-    if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
-
-    printf("DEBUG: Final native coords: x=%d, y=%d, w=%d, h=%d\n", 
-           native_x, native_y, native_width, native_height);
-
-    // Perform partial update
-    EPD_7IN5_V2_Display_Part(time_image_buffer, native_x, native_y, native_x + native_width, native_y + native_height);
 }
 
 int refresh_time_partial(void) {
