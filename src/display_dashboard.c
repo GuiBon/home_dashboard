@@ -562,8 +562,8 @@ static int init_partial_buffer(void) {
     // Step 1: Initialize with full display dimensions (like line 31 in test)
     Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     
-    // Step 2: Reconfigure for rotated text area (use Font24 to match Cairo's 28px time font) 
-    Paint_NewImage(time_image_buffer, Font24.Height, Font24.Width * 5, ROTATE_270, WHITE);
+    // Step 2: Reconfigure for rotated text area (back to working Font20) 
+    Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -609,16 +609,16 @@ int refresh_time_partial(void) {
     // Select our time buffer (like display_time_test.c)
     Paint_SelectImage(time_image_buffer);
     
-    // Clear the time area (use Font24 to match Cairo font size)
-    Paint_ClearWindows(0, 0, Font24.Width * 5, Font24.Height, WHITE);
+    // Clear the time area (back to working Font20)
+    Paint_ClearWindows(0, 0, Font20.Width * 5, Font20.Height, WHITE);
     
-    // Draw time string using Paint_DrawString_EN (use Font24 to match Cairo)
-    Paint_DrawString_EN(0, 0, time_str, &Font24, WHITE, BLACK);
+    // Draw time string using Paint_DrawString_EN (back to working Font20)
+    Paint_DrawString_EN(0, 0, time_str, &Font20, WHITE, BLACK);
     
     // Perform partial update with coordinates (keep working position)
-    // Position (100, 200) was working well, keep it
+    // Position (100, 200) was working well, keep it with Font20
     EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
-                             100 + Font24.Height, 200 + Font24.Width * 5);
+                             100 + Font20.Height, 200 + Font20.Width * 5);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
     
