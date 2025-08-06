@@ -47,22 +47,21 @@ int main(void) {
     sPaint_time.Sec = 56;
     UBYTE num = 10;
     for (;;) {
-        sPaint_time.Sec = sPaint_time.Sec + 1;
-        if (sPaint_time.Sec == 60) {
-            sPaint_time.Min = sPaint_time.Min + 1;
-            sPaint_time.Sec = 0;
-            if (sPaint_time.Min == 60) {
-                sPaint_time.Hour =  sPaint_time.Hour + 1;
-                sPaint_time.Min = 0;
-                if (sPaint_time.Hour == 24) {
-                    sPaint_time.Hour = 0;
-                    sPaint_time.Min = 0;
-                    sPaint_time.Sec = 0;
-                }
-            }
+        // Get current time
+        time_t now = time(NULL);
+        struct tm *tm_info = localtime(&now);
+        if (!tm_info) {
+            LOG_ERROR("❌ Failed to get current time");
+            return -1;
         }
+    
+        // Format time string as "HH:MM"
+        char time_str[6];
+        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
+
         Paint_ClearWindows(0, 0, Font20.Width * 7, Font20.Height, BLACK);
-        Paint_DrawTime(0, 0, &sPaint_time, &Font20, BLACK, WHITE);
+        Paint_DrawString_EN(0, 0, &time_str, &Font20, WHITE, BLACK);
+        // Paint_DrawTime(0, 0, &sPaint_time, &Font20, BLACK, WHITE);
 
         num = num - 1;
         if(num == 0) {
