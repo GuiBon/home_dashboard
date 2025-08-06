@@ -562,8 +562,8 @@ static int init_partial_buffer(void) {
     // Step 1: Initialize with full display dimensions (like line 31 in test)
     Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     
-    // Step 2: Reconfigure for rotated text area (like line 35 in test but for HH:MM) 
-    Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
+    // Step 2: Reconfigure for rotated text area (use Font24 to match Cairo's 28px time font) 
+    Paint_NewImage(time_image_buffer, Font24.Height, Font24.Width * 5, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -609,16 +609,16 @@ int refresh_time_partial(void) {
     // Select our time buffer (like display_time_test.c)
     Paint_SelectImage(time_image_buffer);
     
-    // Clear the time area (exactly like display_time_test.c)
-    Paint_ClearWindows(0, 0, Font20.Width * 5, Font20.Height, WHITE);
+    // Clear the time area (use Font24 to match Cairo font size)
+    Paint_ClearWindows(0, 0, Font24.Width * 5, Font24.Height, WHITE);
     
-    // Draw time string using Paint_DrawString_EN (like display_time_test.c)
-    Paint_DrawString_EN(0, 0, time_str, &Font20, WHITE, BLACK);
+    // Draw time string using Paint_DrawString_EN (use Font24 to match Cairo)
+    Paint_DrawString_EN(0, 0, time_str, &Font24, WHITE, BLACK);
     
-    // Perform partial update with coordinates (adapt from display_time_test.c)
-    // Use coordinates similar to working version: 100, 200 with Font20 dimensions
-    EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
-                             100 + Font20.Height, 200 + Font20.Width * 5);
+    // Perform partial update with coordinates (match Cairo position: HEADER_Y + 65 = 70)
+    // Convert portrait Y=70 to landscape: move it up from 200 to ~70
+    EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 70, 
+                             100 + Font24.Height, 70 + Font24.Width * 5);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
     
