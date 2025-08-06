@@ -533,7 +533,7 @@ static void clear_area(int x, int y, int width, int height) {
     Paint_ClearWindows(x, y, x + width, y + height, WHITE);
 }
 
-// Helper function to draw time (copied exactly from display_time_test.c)
+// Helper function to draw time (copied exactly from display_time_test.c)  
 static void draw_time(struct tm *timeinfo) {
     char time_str[8];
 
@@ -542,25 +542,18 @@ static void draw_time(struct tm *timeinfo) {
 
     printf("DEBUG: draw_time called with time: %s\n", time_str);
 
-    // Now we know drawing works! Let's try drawing the time at the actual top of the screen
-    // Since we saw the black square at top-right, let's try coordinates that would put time at top-left
-    
     // Clear the entire screen first
     Paint_Clear(WHITE);
     printf("DEBUG: Cleared entire screen\n");
     
-    // Try drawing time at various positions to find the right spot
-    // Position 1: Top-left area (should appear at top of landscape screen)
-    printf("DEBUG: Drawing time at position 1 (top area)...\n");
-    Paint_DrawString_EN(50, 50, time_str, &Font24, WHITE, BLACK);
+    // Now test with ROTATE_0 - time should appear in correct orientation
+    // Try positioning the time where we want it to appear on the landscape screen (top area)
+    printf("DEBUG: Drawing time with ROTATE_0 at top position...\n");
+    Paint_DrawString_EN(50, 30, time_str, &Font24, WHITE, BLACK);  // Top-left area
     
-    // Position 2: Different top area
-    printf("DEBUG: Drawing time at position 2 (different top)...\n");
-    Paint_DrawString_EN(100, 100, time_str, &Font20, WHITE, BLACK);
-    
-    // Position 3: Draw a border around where we think the time should be
-    printf("DEBUG: Drawing border around expected time area...\n");
-    Paint_DrawRectangle(40, 40, 200, 80, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+    // Add a visual marker to help identify position
+    printf("DEBUG: Drawing position marker...\n");
+    Paint_DrawRectangle(40, 20, 150, 60, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
     printf("DEBUG: All drawing completed\n");
 }
@@ -620,8 +613,8 @@ int refresh_time_partial(void) {
             return -1;
         }
         
-        // Initialize paint with native dimensions but rotate 270 degrees (exact same as display_time_test.c)
-        Paint_NewImage(time_image_buffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_270, WHITE);
+        // Try different rotation - since ROTATE_270 gives wrong direction, try ROTATE_0 or ROTATE_180
+        Paint_NewImage(time_image_buffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_0, WHITE);
     }
     
     // CRITICAL: Always select our image buffer before any paint operations
