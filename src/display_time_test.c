@@ -32,10 +32,10 @@ int main(void) {
         return -1;
     }
     printf("Paint_NewImage\r\n");
-    Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
+    Paint_NewImage(BlackImage, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, ROTATE_270, WHITE);
 
     EPD_7IN5_V2_Init_Part();
-	Paint_NewImage(BlackImage, Font20.Width * 7, Font20.Height, 0, WHITE);
+	Paint_NewImage(BlackImage, Font20.Width * 7, Font20.Height, ROTATE_270, WHITE);
     Debug("Partial refresh\r\n");
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
