@@ -604,21 +604,6 @@ static void partial_update_display(void) {
 }
 
 int refresh_time_partial(void) {
-    // Auto-initialize if not already done
-    if (!partial_display_initialized) {
-        LOG_DEBUG("⚠️  Partial display not initialized, initializing now...");
-        
-        // Ensure hardware is initialized first
-        if (!eink_hardware_initialized && init_eink_hardware() != 0) {
-            LOG_ERROR("❌ Failed to initialize e-ink hardware for partial refresh");
-            return -1;
-        }
-        
-        if (init_partial_display() != 0) {
-            return -1;
-        }
-    }
-    
     // Get current time
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
@@ -627,11 +612,38 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // CRITICAL: Select our image buffer first (like display_time_test.c does)
+    // Initialize partial mode ONLY when we need it (like display_time_test.c does)
+    LOG_DEBUG("Initializing e-Paper for partial refresh...");
+    EPD_7IN5_V2_Init_Part();
+    
+    // Ensure we have our buffer - if not, create it like display_time_test.c
+    if (!time_image_buffer) {
+        // Use exact same constants as display_time_test.c
+        #define EPD_WIDTH_NATIVE    800
+        #define EPD_HEIGHT_NATIVE   480
+        
+        // Calculate image size based on native display dimensions (same as display_time_test.c)
+        UDOUBLE image_size = ((EPD_WIDTH_NATIVE % 8 == 0) ? (EPD_WIDTH_NATIVE / 8) : (EPD_WIDTH_NATIVE / 8 + 1)) * EPD_HEIGHT_NATIVE;
+        
+        time_image_buffer = (UBYTE *)malloc(image_size);
+        if (!time_image_buffer) {
+            LOG_ERROR("❌ Failed to allocate memory for time image buffer");
+            return -1;
+        }
+        
+        // Initialize paint with native dimensions but rotate 270 degrees (exact same as display_time_test.c)
+        Paint_NewImage(time_image_buffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_270, WHITE);
+    }
+    
+    // CRITICAL: Always select our image buffer before any paint operations
     Paint_SelectImage(time_image_buffer);
+    
+    printf("DEBUG: About to draw time...\n");
     
     // Update time display using exact same functions as display_time_test.c
     draw_time(tm_info);
+    
+    printf("DEBUG: About to do partial update...\n");
     
     // Use partial update using exact same function as display_time_test.c
     partial_update_display();
