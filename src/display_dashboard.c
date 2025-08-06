@@ -533,7 +533,7 @@ static void clear_area(int x, int y, int width, int height) {
     Paint_ClearWindows(x, y, x + width, y + height, WHITE);
 }
 
-// Helper function to draw time (now we know drawing works!)
+// Helper function to draw time - test different drawing methods
 static void draw_time(struct tm *timeinfo) {
     char time_str[8];
 
@@ -552,9 +552,22 @@ static void draw_time(struct tm *timeinfo) {
     clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
     printf("DEBUG: Cleared time area\n");
     
-    // Draw time exactly like display_time_test.c
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
-    printf("DEBUG: Drew time text\n");
+    // TEST 1: Try large filled rectangles to see if they show up in partial mode
+    printf("DEBUG: Drawing large test rectangles...\n");
+    Paint_DrawRectangle(TIME_X + 10, TIME_Y + 10, TIME_X + 100, TIME_Y + 50, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawRectangle(TIME_X + 120, TIME_Y + 10, TIME_X + 210, TIME_Y + 50, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    
+    // TEST 2: Try drawing individual characters instead of string
+    printf("DEBUG: Trying Font20 instead of Font24...\n");
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 60, time_str, &Font20, WHITE, BLACK);
+    
+    // TEST 3: Try drawing manual pixels in text pattern
+    printf("DEBUG: Drawing manual pixel pattern...\n");
+    for (int i = 0; i < 30; i++) {
+        for (int j = 0; j < 5; j++) {
+            Paint_SetPixel(TIME_X + 50 + i, TIME_Y + 80 + j, BLACK);
+        }
+    }
     
     printf("DEBUG: All drawing completed\n");
 }
