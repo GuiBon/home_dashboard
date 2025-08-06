@@ -32,7 +32,8 @@ int init_portrait_display() {
     // Calculate image size based on native display dimensions
     ImageSize = ((EPD_WIDTH_NATIVE % 8 == 0) ? (EPD_WIDTH_NATIVE / 8) : (EPD_WIDTH_NATIVE / 8 + 1)) * EPD_HEIGHT_NATIVE;
 
-    if ((ImageBuffer == (UBYTE *)malloc(ImageSize)) == NULL) {
+    ImageBuffer = (UBYTE *)malloc(ImageSize);
+    if (ImageBuffer == NULL) {
         printf("Failed to allocate memory for image buffer\r\n");
         return -1;
     }
