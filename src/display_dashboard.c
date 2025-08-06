@@ -559,55 +559,43 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Clear the time area first (using portrait coordinates)
-    for (int y = TIME_DISPLAY_Y_PORTRAIT - 10; y < TIME_DISPLAY_Y_PORTRAIT + TIME_DISPLAY_HEIGHT + 10; y++) {
-        for (int x = TIME_DISPLAY_X_PORTRAIT - 60; x < TIME_DISPLAY_X_PORTRAIT + 60; x++) {
-            if (x >= 0 && x < 480 && y >= 0 && y < 800) {
-                Paint_SetPixel(x, y, WHITE);
-            }
-        }
-    }
+    // Use the same coordinates as display_time_test.c for consistency
+    // Clear the time area first (using portrait coordinates matching display_time_test.c)
+    int time_x = 80;   // Same as TIME_X in display_time_test.c
+    int time_y = 100;  // Same as TIME_Y in display_time_test.c 
+    int time_width = 320;  // Same as TIME_WIDTH in display_time_test.c
+    int time_height = 100; // Same as TIME_HEIGHT in display_time_test.c
     
-    // Draw time using Waveshare font (Font20 or Font24) - this will be properly rotated
-    // Position the text in portrait coordinates - Paint rotation will handle the display rotation
-    int text_x = TIME_DISPLAY_X_PORTRAIT - 30; // Adjust for centering
-    int text_y = TIME_DISPLAY_Y_PORTRAIT + 5;  // Adjust for font baseline
+    // Clear the time area - use Paint_ClearWindows like display_time_test.c
+    Paint_ClearWindows(time_x, time_y, time_x + time_width, time_y + time_height, WHITE);
+    
+    // Draw time using same positioning as display_time_test.c
+    // Position text with same offset as working version
+    int text_x = time_x + 50;  // Same as display_time_test.c: TIME_X + 50
+    int text_y = time_y + 25;  // Same as display_time_test.c: TIME_Y + 25
     
     LOG_DEBUG("Drawing time '%s' at portrait position (%d, %d)", time_str, text_x, text_y);
     
-    // Use Font24 for time display (ensure it's bold/visible)
+    // Use Font24 like display_time_test.c
     Paint_DrawString_EN(text_x, text_y, time_str, &Font24, WHITE, BLACK);
     
     // Convert portrait coordinates to native landscape coordinates for partial update
-    // Based on display_time_test.c: ROTATE_270 mapping
-    // Portrait (x, y) -> Native (HEIGHT - (y + height), x)
+    // Use exact same coordinate transformation as display_time_test.c
     
-    // Define the portrait region we want to update  
-    int portrait_x = TIME_DISPLAY_X_PORTRAIT - 60;
-    int portrait_y = TIME_DISPLAY_Y_PORTRAIT - 10;
-    int portrait_width = 120;
-    int portrait_height = TIME_DISPLAY_HEIGHT + 20;
+    // Convert portrait coordinates to native coordinates for ROTATE_270 (same as display_time_test.c)
+    int native_x = 480 - (time_y + time_height);  // EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT)
+    int native_y = time_x;                        // TIME_X becomes native_y
+    int native_width = time_height;               // TIME_HEIGHT becomes native_width
+    int native_height = time_width;               // TIME_WIDTH becomes native_height
     
-    // Convert to native landscape coordinates (ROTATE_270 transformation)
-    int native_x = 800 - (portrait_y + portrait_height);  // EPD_HEIGHT_NATIVE - (y + height)
-    int native_y = portrait_x;                            // x becomes y
-    int native_width = portrait_height;                   // height becomes width
-    int native_height = portrait_width;                   // width becomes height
-    
-    // Ensure coordinates are within bounds
-    if (native_x < 0) {
-        native_width += native_x;
-        native_x = 0;
-    }
-    if (native_y < 0) {
-        native_height += native_y;
-        native_y = 0;
-    }
-    if (native_x + native_width > 800) native_width = 800 - native_x;
-    if (native_y + native_height > 480) native_height = 480 - native_y;
+    // Ensure coordinates are within bounds (same as display_time_test.c)
+    if (native_x < 0) native_x = 0;
+    if (native_y < 0) native_y = 0;
+    if (native_x + native_width > 800) native_width = 800 - native_x;   // EPD_WIDTH_NATIVE
+    if (native_y + native_height > 480) native_height = 480 - native_y; // EPD_HEIGHT_NATIVE
     
     LOG_DEBUG("Partial refresh: portrait region (%d,%d,%d,%d) -> native region (%d,%d,%d,%d)", 
-              portrait_x, portrait_y, portrait_width, portrait_height,
+              time_x, time_y, time_width, time_height,
               native_x, native_y, native_width, native_height);
     
     // Perform partial refresh using native coordinates
