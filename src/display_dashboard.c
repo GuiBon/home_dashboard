@@ -502,11 +502,10 @@ int init_partial_display(void) {
         return -1;
     }
     
-    // Calculate buffer size for "HH:MM" text - use Font20 dimensions like working code
-    // Buffer size: Font20.Height x (Font20.Width * 5) for "HH:MM" with ROTATE_270
-    UDOUBLE image_size = ((Font20.Height % 8 == 0) ? 
-                          (Font20.Height / 8) : 
-                          (Font20.Height / 8 + 1)) * (Font20.Width * 5);
+    // Calculate buffer size exactly like working display_time_test.c - use full display buffer
+    UDOUBLE image_size = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? 
+                          (EPD_7IN5_V2_WIDTH / 8) : 
+                          (EPD_7IN5_V2_WIDTH / 8 + 1)) * EPD_7IN5_V2_HEIGHT;
     
     time_image_buffer = (UBYTE *)malloc(image_size);
     if (!time_image_buffer) {
@@ -517,7 +516,7 @@ int init_partial_display(void) {
     LOG_DEBUG("Allocated %lu bytes for time image buffer (%dx%d with ROTATE_270)", 
               image_size, Font20.Height, Font20.Width * 5);
     
-    // Initialize paint library exactly like display_time_test.c but for "HH:MM"
+    // Initialize paint library exactly like display_time_test.c - full buffer with small rotated area
     Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
