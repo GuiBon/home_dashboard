@@ -546,24 +546,30 @@ static void draw_time(struct tm *timeinfo) {
     #define TIME_WIDTH  320
     #define TIME_HEIGHT 100
 
+    printf("DEBUG: draw_time called with time: %s\n", time_str);
+
     // Clear the time area first
     clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+    printf("DEBUG: After clear_area\n");
 
-    // DEBUG: Draw a black rectangle to see if drawing works at all
-    Paint_DrawRectangle(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
-    
-    // DEBUG: Try drawing text with different fonts to see what works
-    // Try Font20 first (simpler)
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font20, WHITE, BLACK);
-    
-    // Also try Font24 below it
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 50, time_str, &Font24, WHITE, BLACK);
-    
-    // DEBUG: Draw some pixels directly to test basic drawing
-    for (int i = 0; i < 20; i++) {
-        Paint_SetPixel(TIME_X + 10 + i, TIME_Y + 10, BLACK);
-        Paint_SetPixel(TIME_X + 10, TIME_Y + 10 + i, BLACK);
+    // Test 1: Draw pixels BEFORE clearing to see if they show up
+    printf("DEBUG: Drawing pixels...\n");
+    for (int i = 0; i < 50; i++) {
+        for (int j = 0; j < 50; j++) {
+            Paint_SetPixel(TIME_X + 200 + i, TIME_Y + 10 + j, BLACK);
+        }
     }
+    printf("DEBUG: After drawing pixels\n");
+
+    // Test 2: Try filling a small rectangle with black
+    printf("DEBUG: Drawing filled rectangle...\n");
+    Paint_DrawRectangle(TIME_X + 20, TIME_Y + 20, TIME_X + 70, TIME_Y + 70, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    printf("DEBUG: After filled rectangle\n");
+
+    // Test 3: Try outline rectangle
+    printf("DEBUG: Drawing outline rectangle...\n");
+    Paint_DrawRectangle(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+    printf("DEBUG: After outline rectangle\n");
 }
 
 // Helper function for partial update (copied exactly from display_time_test.c)
