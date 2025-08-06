@@ -70,8 +70,8 @@ void draw_time(struct tm *timeinfo) {
 
     printf("DEBUG: Drawing text at position (%d,%d)\r\n", TIME_X + 50, TIME_Y + 25);
 
-    // Draw time centered (large font)
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+    // Draw time centered (large font) - BLACK text on WHITE background
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, BLACK, WHITE);
     
     printf("DEBUG: Time drawing completed\r\n");
 }
@@ -94,10 +94,13 @@ void partial_update_display() {
     // - Left edge of landscape = top of portrait
     // - Top edge of landscape = left side of portrait  
     
-    UWORD native_x = 50;   // Approximate left edge where time appears
-    UWORD native_y = 280;  // Approximate position based on TIME_Y=100 transformed
-    UWORD native_width = 200;  // Wide enough for time text
-    UWORD native_height = 80;  // Tall enough for time text
+    // Based on your description: narrow vertical stripe instead of wide horizontal rectangle
+    // This means width/height are swapped. Let me fix this:
+    
+    UWORD native_x = 280;  // Position where narrow stripe appeared
+    UWORD native_y = 50;   // Left edge in landscape (top in portrait)
+    UWORD native_width = 80;   // Short dimension (was showing as narrow)
+    UWORD native_height = 200; // Long dimension (was showing top-to-bottom)
     
     printf("DEBUG: Using direct native coordinates: x=%d, y=%d, w=%d, h=%d\r\n", 
            native_x, native_y, native_width, native_height);
