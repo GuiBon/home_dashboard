@@ -261,12 +261,10 @@ DataOrchestrator* orchestrator_init(int debug) {
     
     LOG_DEBUG("🚀 Orchestrator initialized");
     
-    // Initialize e-ink hardware and partial display for time updates (only in non-debug mode)
+    // Initialize e-ink hardware for time updates (only in non-debug mode)
     if (!debug) {
         if (init_eink_hardware() != 0) {
             LOG_ERROR("⚠️  Failed to initialize e-ink hardware");
-        } else if (init_partial_display() != 0) {
-            LOG_ERROR("⚠️  Failed to initialize partial display, time updates will be skipped");
         }
     }
     
@@ -298,7 +296,7 @@ void orchestrator_free(DataOrchestrator *orch) {
     menu_client_free(orch->menu_client);
     calendar_client_free(orch->calendar_client);
     
-    // Clean up partial display and e-ink hardware
+    // Clean up e-ink hardware (includes partial display cleanup)
     cleanup_partial_display();
     cleanup_eink_hardware();
     
@@ -482,7 +480,7 @@ void* clock_updater(void *arg) {
         
         if (orch->running) {
             // Use partial refresh for time updates - based on working display_time_test.c
-            if (!orch->debug && is_partial_display_available()) {
+            if (!orch->debug) {
                 if (refresh_time_partial() == 0) {
                     LOG_DEBUG("⏰ Time display updated via partial refresh: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
                 } else {

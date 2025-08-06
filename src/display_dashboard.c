@@ -43,6 +43,16 @@
 // Hardware initialization state
 static int eink_hardware_initialized = 0;
 
+// E-ink mode tracking
+typedef enum {
+    EINK_MODE_NONE = 0,
+    EINK_MODE_FULL,
+    EINK_MODE_FAST, 
+    EINK_MODE_PARTIAL
+} EinkMode;
+
+static EinkMode current_eink_mode = EINK_MODE_NONE;
+
 // Partial display state
 static UBYTE *time_image_buffer = NULL;
 static int partial_display_initialized = 0;
@@ -321,10 +331,79 @@ int generate_dashboard_bmp(const char *filename, time_t display_date,
     return success;
 }
 
+// ====================== E-INK MODE MANAGEMENT ======================
+
+/**
+ * Switch e-ink to the specified mode only if not already in that mode
+ * Returns: 0 on success, -1 on failure
+ */
+static int switch_eink_mode(RefreshType refresh_type) {
+    EinkMode target_mode;
+    const char *mode_name;
+    
+    // Map refresh type to eink mode
+    switch (refresh_type) {
+        case REFRESH_FULL:
+            target_mode = EINK_MODE_FULL;
+            mode_name = "full";
+            break;
+        case REFRESH_FAST:
+            target_mode = EINK_MODE_FAST;
+            mode_name = "fast";
+            break;
+        case REFRESH_PARTIAL:
+            target_mode = EINK_MODE_PARTIAL;
+            mode_name = "partial";
+            break;
+        default:
+            LOG_ERROR("❌ Invalid refresh type: %d", refresh_type);
+            return -1;
+    }
+    
+    // Skip if already in target mode
+    if (current_eink_mode == target_mode) {
+        LOG_DEBUG("E-ink already in %s mode, skipping initialization", mode_name);
+        return 0;
+    }
+    
+    LOG_DEBUG("Switching e-ink from mode %d to %s mode", current_eink_mode, mode_name);
+    
+    // Perform mode switch
+    switch (target_mode) {
+        case EINK_MODE_FULL:
+            if (EPD_7IN5_V2_Init() != 0) {
+                LOG_ERROR("❌ Failed to initialize e-ink for full refresh");
+                return -1;
+            }
+            break;
+            
+        case EINK_MODE_FAST:
+            if (EPD_7IN5_V2_Init_Fast() != 0) {
+                LOG_ERROR("❌ Failed to initialize e-ink for fast refresh");
+                return -1;
+            }
+            break;
+            
+        case EINK_MODE_PARTIAL:
+            if (EPD_7IN5_V2_Init_Part() != 0) {
+                LOG_ERROR("❌ Failed to initialize e-ink for partial refresh");
+                return -1;
+            }
+            break;
+            
+        default:
+            return -1;
+    }
+    
+    current_eink_mode = target_mode;
+    LOG_DEBUG("✅ E-ink switched to %s mode successfully", mode_name);
+    return 0;
+}
+
 // ====================== E-INK HARDWARE MANAGEMENT ======================
 
 /**
- * Initialize Waveshare e-ink hardware
+ * Initialize Waveshare e-ink hardware and set initial mode
  * Returns: 0 on success, -1 on failure
  */
 int init_eink_hardware(void) {
@@ -352,6 +431,7 @@ int init_eink_hardware(void) {
     EPD_7IN5_V2_Clear();
     
     eink_hardware_initialized = 1;
+    current_eink_mode = EINK_MODE_FULL; // Track that we're in full mode after Init()
     LOG_INFO("✅ E-ink hardware initialized successfully");
     return 0;
 }
@@ -370,6 +450,7 @@ void cleanup_eink_hardware(void) {
         DEV_Module_Exit();
         
         eink_hardware_initialized = 0;
+        current_eink_mode = EINK_MODE_NONE;  // Reset mode tracking
         LOG_INFO("✅ E-ink hardware cleanup completed");
     }
 }
@@ -400,35 +481,9 @@ int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType 
         return -1;
     }
     
-    // Initialize display for the specified refresh type
-    switch (refresh_type) {
-        case REFRESH_FULL:
-            LOG_DEBUG("Initializing e-ink for full refresh...");
-            if (EPD_7IN5_V2_Init() != 0) {
-                LOG_ERROR("❌ Failed to initialize e-ink for full refresh");
-                return -1;
-            }
-            break;
-            
-        case REFRESH_FAST:
-            LOG_DEBUG("Initializing e-ink for fast refresh...");
-            if (EPD_7IN5_V2_Init_Fast() != 0) {
-                LOG_ERROR("❌ Failed to initialize e-ink for fast refresh");
-                return -1;
-            }
-            break;
-            
-        case REFRESH_PARTIAL:
-            LOG_DEBUG("Initializing e-ink for partial refresh...");
-            if (EPD_7IN5_V2_Init_Part() != 0) {
-                LOG_ERROR("❌ Failed to initialize e-ink for partial refresh");
-                return -1;
-            }
-            break;
-            
-        default:
-            LOG_ERROR("❌ Invalid refresh type: %d", refresh_type);
-            return -1;
+    // Switch to the appropriate e-ink mode
+    if (switch_eink_mode(refresh_type) != 0) {
+        return -1;
     }
     
     // Calculate buffer size for e-ink display
@@ -480,27 +535,15 @@ int display_image_on_eink(const char *image_path) {
 // ====================== PARTIAL DISPLAY FUNCTIONALITY ======================
 
 /**
- * Initialize partial display system for fast time updates - Based on working display_time_test.c
+ * Initialize partial display buffer for fast time updates - Based on working display_time_test.c
  * Returns: 0 on success, -1 on failure
  */
-int init_partial_display(void) {
+static int init_partial_buffer(void) {
     if (partial_display_initialized) {
         return 0; // Already initialized
     }
 
-    // Ensure hardware is initialized first
-    if (!eink_hardware_initialized) {
-        LOG_ERROR("❌ E-ink hardware must be initialized before partial display");
-        return -1;
-    }
-
-    LOG_INFO("🔧 Initializing partial e-ink display for time updates...");
-    
-    // Initialize partial mode (exactly like display_time_test.c)
-    if (EPD_7IN5_V2_Init_Part() != 0) {
-        LOG_ERROR("❌ Failed to initialize e-paper for partial refresh");
-        return -1;
-    }
+    LOG_INFO("🔧 Initializing partial display buffer for time updates...");
     
     // Calculate buffer size exactly like working display_time_test.c - use full display buffer
     UDOUBLE image_size = ((EPD_7IN5_V2_WIDTH % 8 == 0) ? 
@@ -525,7 +568,7 @@ int init_partial_display(void) {
     Paint_Clear(WHITE);
     
     partial_display_initialized = 1;
-    LOG_INFO("✅ Partial display initialized successfully");
+    LOG_INFO("✅ Partial display buffer initialized successfully");
     return 0;
 }
 
@@ -534,19 +577,14 @@ int init_partial_display(void) {
  * Returns: 0 on success, -1 on failure
  */
 int refresh_time_partial(void) {
-    // Auto-initialize if not already done
-    if (!partial_display_initialized) {
-        LOG_DEBUG("⚠️  Partial display not initialized, initializing now...");
-        
-        // Ensure hardware is initialized first
-        if (!eink_hardware_initialized && init_eink_hardware() != 0) {
-            LOG_ERROR("❌ Failed to initialize e-ink hardware for partial refresh");
-            return -1;
-        }
-        
-        if (init_partial_display() != 0) {
-            return -1;
-        }
+    // Ensure hardware is initialized first
+    if (init_eink_hardware() != 0) {
+        return -1;
+    }
+    
+    // Auto-initialize buffer if not already done
+    if (init_partial_buffer() != 0) {
+        return -1;
     }
     
     // Get current time
@@ -563,9 +601,8 @@ int refresh_time_partial(void) {
     
     LOG_DEBUG("Drawing time '%s' using Paint_DrawString_EN", time_str);
     
-    // Re-initialize for partial mode (needed after full/fast refreshes)
-    if (EPD_7IN5_V2_Init_Part() != 0) {
-        LOG_ERROR("❌ Failed to re-initialize e-paper for partial refresh");
+    // Ensure we're in partial mode (switch if needed)
+    if (switch_eink_mode(REFRESH_PARTIAL) != 0) {
         return -1;
     }
     
@@ -604,12 +641,4 @@ void cleanup_partial_display(void) {
         partial_display_initialized = 0;
         LOG_INFO("✅ Partial display cleanup completed");
     }
-}
-
-/**
- * Check if partial display is available and initialized
- * Returns: 1 if available, 0 if not available
- */
-int is_partial_display_available(void) {
-    return partial_display_initialized;
 }
