@@ -51,7 +51,6 @@ int main(void) {
         time_t now = time(NULL);
         struct tm *tm_info = localtime(&now);
         if (!tm_info) {
-            LOG_ERROR("❌ Failed to get current time");
             return -1;
         }
     
