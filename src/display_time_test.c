@@ -61,8 +61,8 @@ int main(void) {
                 }
             }
         }
-        Paint_ClearWindows(0, 0, Font20.Width * 7, Font20.Height, WHITE);
-        Paint_DrawTime(0, 0, &sPaint_time, &Font20, WHITE, BLACK);
+        Paint_ClearWindows(0, 0, Font20.Width * 7, Font20.Height, BLACK);
+        Paint_DrawTime(0, 0, &sPaint_time, &Font20, BLACK, WHITE);
 
         num = num - 1;
         if(num == 0) {
@@ -70,7 +70,7 @@ int main(void) {
         }
 		// With ROTATE_270, coordinates need adjustment for portrait viewing
 		// Time should appear at top of portrait display
-		EPD_7IN5_V2_Display_Part(BlackImage, 0, 150, 0 + Font20.Height, 150 + Font20.Width * 7);
+		EPD_7IN5_V2_Display_Part(BlackImage, 100, 50, 100 + Font20.Height, 50 + Font20.Width * 7);
         DEV_Delay_ms(500);//Analog clock 1s
     }
 
