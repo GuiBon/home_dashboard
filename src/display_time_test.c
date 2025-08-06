@@ -42,6 +42,10 @@ int init_portrait_display() {
     // This makes the content appear horizontal when screen is held in portrait
     Paint_NewImage(ImageBuffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_270, WHITE);
     Paint_SelectImage(ImageBuffer);
+    
+    // Explicitly clear the entire buffer to WHITE to ensure proper initialization
+    Paint_Clear(WHITE);
+    printf("DEBUG: Buffer initialized and cleared to WHITE\r\n");
 
     return 0;
 }
@@ -101,13 +105,8 @@ void partial_update_display() {
     printf("DEBUG: Update region: (%d,%d) to (%d,%d)\r\n", 
            native_x, native_y, native_x + native_width, native_y + native_height);
 
-    // DEBUG: Try updating a much larger area to see if text appears elsewhere
-    printf("DEBUG: Trying LARGE partial update to capture text...\r\n");
-    EPD_7IN5_V2_Display_Part(ImageBuffer, 0, 0, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE / 2);
-    
-    // Also try the calculated region
-    printf("DEBUG: Also trying calculated region...\r\n");
-    // EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
+    // Perform partial update with calculated coordinates
+    EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
 
     partial_update_count++;
 
