@@ -533,7 +533,7 @@ static void clear_area(int x, int y, int width, int height) {
     Paint_ClearWindows(x, y, x + width, y + height, WHITE);
 }
 
-// Helper function to draw time (copied exactly from display_time_test.c)  
+// Helper function to draw time (like display_time_test.c but only clear specific area)
 static void draw_time(struct tm *timeinfo) {
     char time_str[8];
 
@@ -542,23 +542,28 @@ static void draw_time(struct tm *timeinfo) {
 
     printf("DEBUG: draw_time called with time: %s\n", time_str);
 
-    // Clear the entire screen first
-    Paint_Clear(WHITE);
-    printf("DEBUG: Cleared entire screen\n");
+    // Use the exact same coordinates as display_time_test.c for portrait viewing
+    #define TIME_X      80
+    #define TIME_Y      100
+    #define TIME_WIDTH  320
+    #define TIME_HEIGHT 100
+
+    // Clear ONLY the time area (not entire screen) - like display_time_test.c
+    clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+    printf("DEBUG: Cleared time area only\n");
     
-    // Now test with ROTATE_0 - time should appear in correct orientation
-    // Try positioning the time where we want it to appear on the landscape screen (top area)
-    printf("DEBUG: Drawing time with ROTATE_0 at top position...\n");
-    Paint_DrawString_EN(50, 30, time_str, &Font24, WHITE, BLACK);  // Top-left area
+    // Draw time exactly like display_time_test.c
+    printf("DEBUG: Drawing time with ROTATE_270 for portrait viewing...\n");
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
     
-    // Add a visual marker to help identify position
-    printf("DEBUG: Drawing position marker...\n");
-    Paint_DrawRectangle(40, 20, 150, 60, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    // Add border around time area for debugging
+    printf("DEBUG: Drawing border around time area...\n");
+    Paint_DrawRectangle(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
     printf("DEBUG: All drawing completed\n");
 }
 
-// Helper function for partial update (copied exactly from display_time_test.c)
+// Helper function for partial update (exactly like display_time_test.c)
 static void partial_update_display(void) {
     // Use exact same constants as display_time_test.c
     #define TIME_X      80
@@ -568,21 +573,25 @@ static void partial_update_display(void) {
     #define EPD_WIDTH_NATIVE    800
     #define EPD_HEIGHT_NATIVE   480
 
-    printf("DEBUG: Testing FULL SCREEN partial update to see everything...\n");
-    
-    // Try updating the ENTIRE screen to see if our drawing shows up anywhere
-    EPD_7IN5_V2_Display_Part(time_image_buffer, 0, 0, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE);
-    
-    printf("DEBUG: Full screen partial update completed\n");
-    
-    // Original coordinate calculation for reference
+    // Convert portrait coordinates to native coordinates for ROTATE_270 (exactly like display_time_test.c)
     int native_x = EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT);
     int native_y = TIME_X;
     int native_width = TIME_HEIGHT;
     int native_height = TIME_WIDTH;
 
-    printf("DEBUG: Original calculated region would be: x=%d, y=%d, w=%d, h=%d\n", 
+    // Ensure coordinates are within bounds (exactly like display_time_test.c)
+    if (native_x < 0) native_x = 0;
+    if (native_y < 0) native_y = 0;
+    if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
+    if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
+
+    printf("DEBUG: Partial update region: x=%d, y=%d, w=%d, h=%d\n", 
            native_x, native_y, native_width, native_height);
+
+    // Perform partial update (exactly like display_time_test.c)
+    EPD_7IN5_V2_Display_Part(time_image_buffer, native_x, native_y, native_x + native_width, native_y + native_height);
+    
+    printf("DEBUG: Partial update completed\n");
 }
 
 int refresh_time_partial(void) {
@@ -613,8 +622,8 @@ int refresh_time_partial(void) {
             return -1;
         }
         
-        // Try different rotation - since ROTATE_270 gives wrong direction, try ROTATE_0 or ROTATE_180
-        Paint_NewImage(time_image_buffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_0, WHITE);
+        // Back to ROTATE_270 for portrait viewing - this should make text readable when holding display vertically
+        Paint_NewImage(time_image_buffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_270, WHITE);
     }
     
     // CRITICAL: Always select our image buffer before any paint operations
