@@ -519,8 +519,8 @@ int init_partial_display(void) {
     // Step 1: Initialize with full display dimensions (like line 31 in test)
     Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     
-    // Step 2: Reconfigure for rotated text area (like line 35 in test) 
-    Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
+    // Step 2: Reconfigure for rotated text area (like line 35 in test but for HH:MM) 
+    // Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
