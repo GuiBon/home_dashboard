@@ -528,6 +528,57 @@ int init_partial_display(void) {
  * Based on working display_time_test.c approach
  * Returns: 0 on success, -1 on failure
  */
+// Helper function to clear a specific area (copied from display_time_test.c)
+static void clear_area(int x, int y, int width, int height) {
+    Paint_ClearWindows(x, y, x + width, y + height, WHITE);
+}
+
+// Helper function to draw time (copied exactly from display_time_test.c)
+static void draw_time(struct tm *timeinfo) {
+    char time_str[8];
+
+    // Format time in 24-hour format (HH:MM)
+    snprintf(time_str, sizeof(time_str), "%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min);
+
+    // Use exact same constants as display_time_test.c
+    #define TIME_X      80
+    #define TIME_Y      100
+    #define TIME_WIDTH  320
+    #define TIME_HEIGHT 100
+
+    // Clear the time area first
+    clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
+
+    // Draw time centered (large font)
+    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+}
+
+// Helper function for partial update (copied exactly from display_time_test.c)
+static void partial_update_display(void) {
+    // Use exact same constants as display_time_test.c
+    #define TIME_X      80
+    #define TIME_Y      100
+    #define TIME_WIDTH  320
+    #define TIME_HEIGHT 100
+    #define EPD_WIDTH_NATIVE    800
+    #define EPD_HEIGHT_NATIVE   480
+
+    // Convert portrait coordinates to native coordinates for ROTATE_270
+    int native_x = EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT);
+    int native_y = TIME_X;
+    int native_width = TIME_HEIGHT;
+    int native_height = TIME_WIDTH;
+
+    // Ensure coordinates are within bounds
+    if (native_x < 0) native_x = 0;
+    if (native_y < 0) native_y = 0;
+    if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
+    if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
+
+    // Perform partial update
+    EPD_7IN5_V2_Display_Part(time_image_buffer, native_x, native_y, native_x + native_width, native_y + native_height);
+}
+
 int refresh_time_partial(void) {
     // Auto-initialize if not already done
     if (!partial_display_initialized) {
@@ -552,54 +603,16 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Format time string
-    char time_str[16];
-    if (strftime(time_str, sizeof(time_str), "%H:%M", tm_info) == 0) {
-        LOG_ERROR("❌ Failed to format time string");
-        return -1;
-    }
-    
-    // Follow exact same pattern as display_time_test.c draw_time() function
-    
-    // Use exact same constants as display_time_test.c
-    #define TIME_X      80
-    #define TIME_Y      100
-    #define TIME_WIDTH  320
-    #define TIME_HEIGHT 100
-    #define EPD_WIDTH_NATIVE    800
-    #define EPD_HEIGHT_NATIVE   480
-    
     // CRITICAL: Select our image buffer first (like display_time_test.c does)
     Paint_SelectImage(time_image_buffer);
     
-    // Clear the time area first (exactly like display_time_test.c clear_area function)
-    Paint_ClearWindows(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, WHITE);
+    // Update time display using exact same functions as display_time_test.c
+    draw_time(tm_info);
     
-    // Draw time centered (exactly like display_time_test.c)
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+    // Use partial update using exact same function as display_time_test.c
+    partial_update_display();
     
-    LOG_DEBUG("Drawing time '%s' at position (%d, %d)", time_str, TIME_X + 50, TIME_Y + 25);
-    
-    // Convert portrait coordinates to native coordinates for ROTATE_270 (exactly like display_time_test.c)
-    int native_x = EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT);
-    int native_y = TIME_X;
-    int native_width = TIME_HEIGHT;
-    int native_height = TIME_WIDTH;
-    
-    // Ensure coordinates are within bounds (exactly like display_time_test.c)
-    if (native_x < 0) native_x = 0;
-    if (native_y < 0) native_y = 0;
-    if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
-    if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
-    
-    LOG_DEBUG("Partial refresh: portrait region (%d,%d,%d,%d) -> native region (%d,%d,%d,%d)", 
-              TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT,
-              native_x, native_y, native_width, native_height);
-    
-    // Perform partial refresh using native coordinates
-    EPD_7IN5_V2_Display_Part(time_image_buffer, 
-                             native_x, native_y, 
-                             native_x + native_width, native_y + native_height);
+    LOG_DEBUG("⏰ Time display updated via partial refresh: %02d:%02d", tm_info->tm_hour, tm_info->tm_min);
     
     return 0;
 }
