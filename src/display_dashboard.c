@@ -513,10 +513,13 @@ int init_partial_display(void) {
         return -1;
     }
     
-    LOG_DEBUG("Allocated %lu bytes for time image buffer (%dx%d with ROTATE_270)", 
-              image_size, Font20.Height, Font20.Width * 5);
+    LOG_DEBUG("Allocated %lu bytes for time image buffer (full display buffer)", image_size);
     
-    // Initialize paint library exactly like display_time_test.c - full buffer with small rotated area
+    // Initialize paint library exactly like display_time_test.c - TWO STEP PROCESS
+    // Step 1: Initialize with full display dimensions (like line 31 in test)
+    Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
+    
+    // Step 2: Reconfigure for rotated text area (like line 35 in test) 
     Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
