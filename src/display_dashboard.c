@@ -502,10 +502,8 @@ int init_partial_display(void) {
         return -1;
     }
     
-    // Calculate buffer size for time display area (with proper 8-bit alignment)
-    UDOUBLE image_size = ((TIME_DISPLAY_WIDTH % 8 == 0) ? 
-                          (TIME_DISPLAY_WIDTH / 8) : 
-                          (TIME_DISPLAY_WIDTH / 8 + 1)) * TIME_DISPLAY_HEIGHT;
+    // Calculate buffer size for full display (needed for proper rotation like display_time_test.c)
+    UDOUBLE image_size = ((800 % 8 == 0) ? (800 / 8) : (800 / 8 + 1)) * 480;
     
     time_image_buffer = (UBYTE *)malloc(image_size);
     if (!time_image_buffer) {
@@ -513,11 +511,10 @@ int init_partial_display(void) {
         return -1;
     }
     
-    LOG_DEBUG("Allocated %lu bytes for time image buffer (%dx%d)", 
-              image_size, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
+    LOG_DEBUG("Allocated %lu bytes for full display buffer (800x480 with ROTATE_270)", image_size);
     
-    // Initialize paint library with time buffer
-    Paint_NewImage(time_image_buffer, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT, 0, WHITE);
+    // Initialize paint library with full display dimensions and ROTATE_270 (like display_time_test.c)
+    Paint_NewImage(time_image_buffer, 800, 480, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -527,7 +524,8 @@ int init_partial_display(void) {
 }
 
 /**
- * Refresh time display using partial e-ink update with Cairo-rendered rotated text
+ * Refresh time display using partial e-ink update with proper rotation
+ * Based on working display_time_test.c approach
  * Returns: 0 on success, -1 on failure
  */
 int refresh_time_partial(void) {
@@ -561,133 +559,61 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Create Cairo surface for rotated text rendering
-    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
-    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERROR("❌ Failed to create Cairo surface for time rendering");
-        return -1;
-    }
-    
-    cairo_t *cr = cairo_create(surface);
-    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERROR("❌ Failed to create Cairo context for time rendering");
-        cairo_surface_destroy(surface);
-        return -1;
-    }
-    
-    // Clear background to white
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_paint(cr);
-    
-    // Set up font (use Liberation Sans Bold for time display)
-    cairo_select_font_face(cr, "Liberation Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 24); // Slightly smaller font to fit better in rotated space
-    
-    // Set text color to black
-    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-    
-    // Get text extents for centering
-    cairo_text_extents_t extents;
-    cairo_text_extents(cr, time_str, &extents);
-    
-    LOG_DEBUG("Text '%s' extents: width=%.1f, height=%.1f, x_bearing=%.1f, y_bearing=%.1f", 
-              time_str, extents.width, extents.height, extents.x_bearing, extents.y_bearing);
-    
-    // Calculate center position
-    double center_x = TIME_DISPLAY_WIDTH / 2.0;
-    double center_y = TIME_DISPLAY_HEIGHT / 2.0;
-    
-    // Move to center, rotate 90° counter-clockwise for bottom-to-top text, then position text
-    cairo_save(cr);
-    cairo_translate(cr, center_x, center_y);
-    cairo_rotate(cr, -M_PI / 2.0); // 90° counter-clockwise rotation (bottom to top)
-    
-    // Position text relative to the rotation center (adjust for proper centering)
-    cairo_move_to(cr, -extents.width / 2.0 - extents.x_bearing, -extents.y_bearing / 2.0);
-    cairo_show_text(cr, time_str);
-    cairo_restore(cr);
-    
-    LOG_DEBUG("Rendered rotated time text in %dx%d Cairo surface", TIME_DISPLAY_WIDTH, TIME_DISPLAY_HEIGHT);
-    
-    // Ensure all drawing is completed
-    cairo_surface_flush(surface);
-    
-    // Convert Cairo surface to Waveshare paint buffer
-    unsigned char *cairo_data = cairo_image_surface_get_data(surface);
-    int cairo_stride = cairo_image_surface_get_stride(surface);
-    
-    // Clear Waveshare buffer
-    Paint_Clear(WHITE);
-    
-    // Convert Cairo ARGB32 to Waveshare 1-bit format with Floyd-Steinberg dithering
-    float *error_buffer = calloc(TIME_DISPLAY_WIDTH + 2, sizeof(float));
-    if (!error_buffer) {
-        LOG_ERROR("❌ Failed to allocate error buffer for time dithering");
-        cairo_destroy(cr);
-        cairo_surface_destroy(surface);
-        return -1;
-    }
-    
-    for (int y = 0; y < TIME_DISPLAY_HEIGHT; y++) {
-        // Reset error buffer for new row
-        for (int i = 0; i < TIME_DISPLAY_WIDTH + 2; i++) {
-            error_buffer[i] = 0.0f;
-        }
-        
-        for (int x = 0; x < TIME_DISPLAY_WIDTH; x++) {
-            int cairo_offset = y * cairo_stride + x * 4;
-            
-            // Get RGB values from Cairo ARGB32 format: B-G-R-A
-            unsigned char blue = cairo_data[cairo_offset];
-            unsigned char green = cairo_data[cairo_offset + 1];
-            unsigned char red = cairo_data[cairo_offset + 2];
-            
-            // Convert to grayscale
-            float gray = 0.299f * red + 0.587f * green + 0.114f * blue;
-            
-            // Apply accumulated error from previous pixels
-            gray += error_buffer[x + 1];
-            
-            // Clamp to valid range
-            if (gray < 0) gray = 0;
-            if (gray > 255) gray = 255;
-            
-            // Quantize: > 128 = white (255), <= 128 = black (0)
-            int quantized = (gray > 128) ? 255 : 0;
-            
-            // Calculate quantization error
-            float error = gray - quantized;
-            
-            // Distribute error to neighboring pixels (Floyd-Steinberg pattern)
-            if (x + 1 < TIME_DISPLAY_WIDTH) {
-                error_buffer[x + 2] += error * 7.0f / 16.0f; // Right pixel
-            }
-            
-            // Set pixel in Waveshare buffer
-            if (quantized == 0) {
-                Paint_SetPixel(x, y, BLACK);
-            } else {
+    // Clear the time area first (using portrait coordinates)
+    for (int y = TIME_DISPLAY_Y_PORTRAIT - 10; y < TIME_DISPLAY_Y_PORTRAIT + TIME_DISPLAY_HEIGHT + 10; y++) {
+        for (int x = TIME_DISPLAY_X_PORTRAIT - 60; x < TIME_DISPLAY_X_PORTRAIT + 60; x++) {
+            if (x >= 0 && x < 480 && y >= 0 && y < 800) {
                 Paint_SetPixel(x, y, WHITE);
             }
         }
     }
     
-    free(error_buffer);
+    // Draw time using Waveshare font (Font20 or Font24) - this will be properly rotated
+    // Position the text in portrait coordinates - Paint rotation will handle the display rotation
+    int text_x = TIME_DISPLAY_X_PORTRAIT - 30; // Adjust for centering
+    int text_y = TIME_DISPLAY_Y_PORTRAIT + 5;  // Adjust for font baseline
     
-    // Cleanup Cairo objects
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
+    LOG_DEBUG("Drawing time '%s' at portrait position (%d, %d)", time_str, text_x, text_y);
     
-    // Perform partial refresh at observed coordinates
-    LOG_DEBUG("Partial refresh: rotated time '%s' at display area (%d, %d) to (%d, %d)", 
-              time_str, TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED,
-              TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 
-              TIME_DISPLAY_Y_ROTATED + TIME_DISPLAY_HEIGHT);
+    // Use Font24 for time display (ensure it's bold/visible)
+    Paint_DrawString_EN(text_x, text_y, time_str, &Font24, WHITE, BLACK);
     
+    // Convert portrait coordinates to native landscape coordinates for partial update
+    // Based on display_time_test.c: ROTATE_270 mapping
+    // Portrait (x, y) -> Native (HEIGHT - (y + height), x)
+    
+    // Define the portrait region we want to update  
+    int portrait_x = TIME_DISPLAY_X_PORTRAIT - 60;
+    int portrait_y = TIME_DISPLAY_Y_PORTRAIT - 10;
+    int portrait_width = 120;
+    int portrait_height = TIME_DISPLAY_HEIGHT + 20;
+    
+    // Convert to native landscape coordinates (ROTATE_270 transformation)
+    int native_x = 800 - (portrait_y + portrait_height);  // EPD_HEIGHT_NATIVE - (y + height)
+    int native_y = portrait_x;                            // x becomes y
+    int native_width = portrait_height;                   // height becomes width
+    int native_height = portrait_width;                   // width becomes height
+    
+    // Ensure coordinates are within bounds
+    if (native_x < 0) {
+        native_width += native_x;
+        native_x = 0;
+    }
+    if (native_y < 0) {
+        native_height += native_y;
+        native_y = 0;
+    }
+    if (native_x + native_width > 800) native_width = 800 - native_x;
+    if (native_y + native_height > 480) native_height = 480 - native_y;
+    
+    LOG_DEBUG("Partial refresh: portrait region (%d,%d,%d,%d) -> native region (%d,%d,%d,%d)", 
+              portrait_x, portrait_y, portrait_width, portrait_height,
+              native_x, native_y, native_width, native_height);
+    
+    // Perform partial refresh using native coordinates
     EPD_7IN5_V2_Display_Part(time_image_buffer, 
-                             TIME_DISPLAY_X_ROTATED, TIME_DISPLAY_Y_ROTATED, 
-                             TIME_DISPLAY_X_ROTATED + TIME_DISPLAY_WIDTH, 
-                             TIME_DISPLAY_Y_ROTATED + TIME_DISPLAY_HEIGHT);
+                             native_x, native_y, 
+                             native_x + native_width, native_y + native_height);
     
     return 0;
 }
