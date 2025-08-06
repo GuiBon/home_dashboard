@@ -97,10 +97,10 @@ void partial_update_display() {
     // Based on your description: narrow vertical stripe instead of wide horizontal rectangle
     // This means width/height are swapped. Let me fix this:
     
-    UWORD native_x = 280;  // Position where narrow stripe appeared
-    UWORD native_y = 50;   // Left edge in landscape (top in portrait)
-    UWORD native_width = 80;   // Short dimension (was showing as narrow)
-    UWORD native_height = 200; // Long dimension (was showing top-to-bottom)
+    UWORD native_x = 80;  // Position where narrow stripe appeared
+    UWORD native_y = 100;   // Left edge in landscape (top in portrait)
+    UWORD native_width = 100;   // Short dimension (was showing as narrow)
+    UWORD native_height = 400; // Long dimension (was showing top-to-bottom)
     
     printf("DEBUG: Using direct native coordinates: x=%d, y=%d, w=%d, h=%d\r\n", 
            native_x, native_y, native_width, native_height);
