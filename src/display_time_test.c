@@ -38,6 +38,8 @@ int init_portrait_display() {
         return -1;
     }
 
+    // Initialize partial mode
+    EPD_7IN5_V2_Init_Part();
     // Initialize paint with native dimensions but rotate 270 degrees
     // This makes the content appear horizontal when screen is held in portrait
     Paint_NewImage(ImageBuffer, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE, ROTATE_270, WHITE);
@@ -104,10 +106,7 @@ void partial_update_display() {
     
     printf("DEBUG: Using direct native coordinates: x=%d, y=%d, w=%d, h=%d\r\n", 
            native_x, native_y, native_width, native_height);
-    
-    // Initialize partial mode
-    EPD_7IN5_V2_Init_Part();
-    
+        
     // Perform partial update
     EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
     
@@ -129,15 +128,15 @@ int main(void) {
         return -1;
     }
 
+    printf("Initializing e-Paper display...\r\n");
+    EPD_7IN5_V2_Init();
+    EPD_7IN5_V2_Clear();
+
     // Initialize display buffer
     if (init_portrait_display() != 0) {
         DEV_Module_Exit();
         return -1;
     }
-
-    printf("Initializing e-Paper display...\r\n");
-    EPD_7IN5_V2_Init();
-    EPD_7IN5_V2_Clear();
 
     // Initial full screen setup
     Paint_Clear(WHITE);
@@ -163,9 +162,6 @@ int main(void) {
 
         time(&rawtime);
         timeinfo = localtime(&rawtime);
-
-        // Clear buffer to WHITE
-        Paint_Clear(WHITE);
 
         // Update time display
         draw_time(timeinfo);
