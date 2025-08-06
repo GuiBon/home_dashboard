@@ -101,8 +101,13 @@ void partial_update_display() {
     printf("DEBUG: Update region: (%d,%d) to (%d,%d)\r\n", 
            native_x, native_y, native_x + native_width, native_y + native_height);
 
-    // Perform partial update
-    EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
+    // DEBUG: Try updating a much larger area to see if text appears elsewhere
+    printf("DEBUG: Trying LARGE partial update to capture text...\r\n");
+    EPD_7IN5_V2_Display_Part(ImageBuffer, 0, 0, EPD_WIDTH_NATIVE, EPD_HEIGHT_NATIVE / 2);
+    
+    // Also try the calculated region
+    printf("DEBUG: Also trying calculated region...\r\n");
+    // EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
 
     partial_update_count++;
 
