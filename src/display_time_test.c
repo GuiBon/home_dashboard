@@ -16,11 +16,7 @@ int main(void) {
     printf("e-Paper Init and Clear...\r\n");
     EPD_7IN5_V2_Init();
 
-    struct timespec start={0,0}, finish={0,0}; 
-    clock_gettime(CLOCK_REALTIME,&start);
     EPD_7IN5_V2_Clear();
-    clock_gettime(CLOCK_REALTIME,&finish);
-    printf("%ld S\r\n",finish.tv_sec-start.tv_sec);
     DEV_Delay_ms(500);
 	
     //Create a new image cache
@@ -41,10 +37,6 @@ int main(void) {
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
 	
-    PAINT_TIME sPaint_time;
-    sPaint_time.Hour = 12;
-    sPaint_time.Min = 34;
-    sPaint_time.Sec = 56;
     UBYTE num = 10;
     for (;;) {
         // Get current time
@@ -58,9 +50,8 @@ int main(void) {
         char time_str[9];
         snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 
-        Paint_ClearWindows(0, 0, Font20.Width * 8, Font20.Height, BLACK);
-        Paint_DrawString_EN(0, 0, &time_str, &Font20, BLACK, WHITE);
-        // Paint_DrawTime(0, 0, &sPaint_time, &Font20, BLACK, WHITE);
+        Paint_ClearWindows(0, 0, Font20.Width * 8, Font20.Height, WHITE);
+        Paint_DrawString_EN(0, 0, &time_str, &Font20, WHITE, BLACK);
 
         num = num - 1;
         if(num == 0) {
