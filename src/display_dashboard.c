@@ -559,35 +559,26 @@ static void draw_time(struct tm *timeinfo) {
     printf("DEBUG: All drawing completed\n");
 }
 
-// Helper function for partial update (exactly like display_time_test.c)
+// Helper function for partial update - UPDATE 90% OF SCREEN for debugging
 static void partial_update_display(void) {
-    // Use exact same constants as display_time_test.c
-    #define TIME_X      80
-    #define TIME_Y      100
-    #define TIME_WIDTH  320
-    #define TIME_HEIGHT 100
     #define EPD_WIDTH_NATIVE    800
     #define EPD_HEIGHT_NATIVE   480
 
-    // Convert portrait coordinates to native coordinates for ROTATE_270 (exactly like display_time_test.c)
-    int native_x = EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT);
-    int native_y = TIME_X;
-    int native_width = TIME_HEIGHT;
-    int native_height = TIME_WIDTH;
+    // Update 90% of the screen to see if our drawing is happening elsewhere
+    int margin = 5; // 5% margin on each side
+    int native_x = (EPD_WIDTH_NATIVE * margin) / 100;           // 5% from left
+    int native_y = (EPD_HEIGHT_NATIVE * margin) / 100;         // 5% from top
+    int native_width = EPD_WIDTH_NATIVE - (2 * native_x);      // 90% width
+    int native_height = EPD_HEIGHT_NATIVE - (2 * native_y);    // 90% height
 
-    // Ensure coordinates are within bounds (exactly like display_time_test.c)
-    if (native_x < 0) native_x = 0;
-    if (native_y < 0) native_y = 0;
-    if (native_x + native_width > EPD_WIDTH_NATIVE) native_width = EPD_WIDTH_NATIVE - native_x;
-    if (native_y + native_height > EPD_HEIGHT_NATIVE) native_height = EPD_HEIGHT_NATIVE - native_y;
-
-    printf("DEBUG: Partial update region: x=%d, y=%d, w=%d, h=%d\n", 
+    printf("DEBUG: LARGE partial update region (90%% of screen): x=%d, y=%d, w=%d, h=%d\n", 
            native_x, native_y, native_width, native_height);
+    printf("DEBUG: This should reveal any drawing anywhere on screen\n");
 
-    // Perform partial update (exactly like display_time_test.c)
+    // Perform partial update on 90% of screen
     EPD_7IN5_V2_Display_Part(time_image_buffer, native_x, native_y, native_x + native_width, native_y + native_height);
     
-    printf("DEBUG: Partial update completed\n");
+    printf("DEBUG: Large partial update completed\n");
 }
 
 int refresh_time_partial(void) {
