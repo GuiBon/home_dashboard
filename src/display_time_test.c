@@ -59,7 +59,7 @@ int main(void) {
         snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 
         Paint_ClearWindows(0, 0, Font20.Width * 7, Font20.Height, BLACK);
-        Paint_DrawString_EN(0, 0, &time_str, &Font20, WHITE, BLACK);
+        Paint_DrawString_EN(0, 0, &time_str, &Font20, BLACK, WHITE);
         // Paint_DrawTime(0, 0, &sPaint_time, &Font20, BLACK, WHITE);
 
         num = num - 1;
