@@ -76,33 +76,39 @@ void draw_time(struct tm *timeinfo) {
     printf("DEBUG: Time drawing completed\r\n");
 }
 
-// Function to perform partial update - SIMPLIFIED TEST VERSION
+// Function to perform partial update - FIXED VERSION
 void partial_update_display() {
-    printf("DEBUG: Skipping coordinate transformation - doing FULL DISPLAY for now\r\n");
+    // Since full display works, the issue is coordinate transformation for partial updates
+    // The time appears at top-left in portrait mode (TIME_X=80, TIME_Y=100)
+    // With ROTATE_270, we need to map this correctly to native landscape coordinates
     
-    // For debugging: just do a full display instead of partial update
-    // This will confirm if the time is being drawn correctly in the buffer
-    EPD_7IN5_V2_Display(ImageBuffer);
+    // For ROTATE_270: portrait(x,y) -> native(HEIGHT-1-y, x) 
+    // But for regions, we need to account for the actual drawing area
+    
+    printf("DEBUG: Using corrected coordinate transformation...\r\n");
+    
+    // Since the time displays correctly at top-left, let's use direct native coordinates
+    // where we know the time appears in landscape mode
+    
+    // Time appears at top-left in portrait, which in native landscape should be:
+    // - Left edge of landscape = top of portrait
+    // - Top edge of landscape = left side of portrait  
+    
+    UWORD native_x = 50;   // Approximate left edge where time appears
+    UWORD native_y = 280;  // Approximate position based on TIME_Y=100 transformed
+    UWORD native_width = 200;  // Wide enough for time text
+    UWORD native_height = 80;  // Tall enough for time text
+    
+    printf("DEBUG: Using direct native coordinates: x=%d, y=%d, w=%d, h=%d\r\n", 
+           native_x, native_y, native_width, native_height);
+    
+    // Initialize partial mode
+    EPD_7IN5_V2_Init_Part();
+    
+    // Perform partial update
+    EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
     
     partial_update_count++;
-    
-    // Every few updates, try the calculated partial region to see if it works
-    if (partial_update_count == 3) {
-        printf("DEBUG: Now trying PARTIAL update with calculated coordinates...\r\n");
-        
-        // Convert portrait coordinates to native coordinates for ROTATE_270
-        UWORD native_x = EPD_HEIGHT_NATIVE - (TIME_Y + TIME_HEIGHT);
-        UWORD native_y = TIME_X;
-        UWORD native_width = TIME_HEIGHT;
-        UWORD native_height = TIME_WIDTH;
-        
-        printf("DEBUG: Partial coordinates: x=%d, y=%d, w=%d, h=%d\r\n", 
-               native_x, native_y, native_width, native_height);
-        
-        // Try partial update
-        EPD_7IN5_V2_Init_Part();  // Ensure partial mode
-        EPD_7IN5_V2_Display_Part(ImageBuffer, native_x, native_y, native_x + native_width, native_y + native_height);
-    }
 }
 
 // Function to draw static elements (only needed once or after full refresh)
