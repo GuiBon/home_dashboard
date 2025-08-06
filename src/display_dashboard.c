@@ -533,7 +533,7 @@ static void clear_area(int x, int y, int width, int height) {
     Paint_ClearWindows(x, y, x + width, y + height, WHITE);
 }
 
-// Helper function to draw time (like display_time_test.c but only clear specific area)
+// Helper function to draw time - NO CLEARING, just drawing to test
 static void draw_time(struct tm *timeinfo) {
     char time_str[8];
 
@@ -542,23 +542,17 @@ static void draw_time(struct tm *timeinfo) {
 
     printf("DEBUG: draw_time called with time: %s\n", time_str);
 
-    // Use the exact same coordinates as display_time_test.c for portrait viewing
-    #define TIME_X      80
-    #define TIME_Y      100
-    #define TIME_WIDTH  320
-    #define TIME_HEIGHT 100
-
-    // Clear ONLY the time area (not entire screen) - like display_time_test.c
-    clear_area(TIME_X, TIME_Y, TIME_WIDTH, TIME_HEIGHT);
-    printf("DEBUG: Cleared time area only\n");
+    // DON'T clear anything - just try to draw on top of existing display
+    // This way we can see if drawing works at all
     
-    // Draw time exactly like display_time_test.c
-    printf("DEBUG: Drawing time with ROTATE_270 for portrait viewing...\n");
-    Paint_DrawString_EN(TIME_X + 50, TIME_Y + 25, time_str, &Font24, WHITE, BLACK);
+    printf("DEBUG: Drawing large black rectangle (should be very visible)...\n");
+    Paint_DrawRectangle(50, 50, 200, 150, BLACK, DOT_PIXEL_3X3, DRAW_FILL_FULL);
     
-    // Add border around time area for debugging
-    printf("DEBUG: Drawing border around time area...\n");
-    Paint_DrawRectangle(TIME_X, TIME_Y, TIME_X + TIME_WIDTH, TIME_Y + TIME_HEIGHT, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    printf("DEBUG: Drawing time text over black rectangle...\n");
+    Paint_DrawString_EN(60, 80, time_str, &Font24, BLACK, WHITE);  // White text on black background
+    
+    printf("DEBUG: Drawing another test rectangle at different position...\n");
+    Paint_DrawRectangle(300, 200, 450, 300, BLACK, DOT_PIXEL_2X2, DRAW_FILL_FULL);
     
     printf("DEBUG: All drawing completed\n");
 }
