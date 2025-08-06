@@ -56,7 +56,6 @@ WAVESHARE_SOURCES = $(WAVESHARE_DIR)/Config/DEV_Config.c \
                     $(WAVESHARE_DIR)/e-Paper/EPD_7in5_V2.c \
                     $(WAVESHARE_DIR)/GUI/GUI_Paint.c \
                     $(WAVESHARE_DIR)/GUI/GUI_BMPfile.c \
-                    $(WAVESHARE_DIR)/Fonts/font20.c \
                     $(WAVESHARE_DIR)/Fonts/font24.c
 
 # ====================== BUILD TARGETS ======================

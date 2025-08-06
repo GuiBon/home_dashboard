@@ -34,8 +34,8 @@
 #define TIME_DISPLAY_X_ROTATED 50    // Observed position: far left of landscape screen
 #define TIME_DISPLAY_Y_ROTATED 240   // Observed position: middle height (matches calculation)
 #define TIME_DISPLAY_WIDTH 120       // Wide enough for "HH:MM" text
-#define TIME_DISPLAY_HEIGHT 40       // Tall enough for Font20
-#define TIME_FONT_CHAR_WIDTH 14      // Approximate character width for Font20
+#define TIME_DISPLAY_HEIGHT 40       // Tall enough for Font24
+#define TIME_FONT_CHAR_WIDTH 14      // Approximate character width for Font24
 #define TIME_STRING_LENGTH 5         // "HH:MM" = 5 characters
 
 // ====================== GLOBAL STATE ======================
@@ -615,10 +615,10 @@ int refresh_time_partial(void) {
     // Draw time string using Paint_DrawString_EN (use Font24 to match Cairo)
     Paint_DrawString_EN(0, 0, time_str, &Font24, WHITE, BLACK);
     
-    // Perform partial update with coordinates (match Cairo position: HEADER_Y + 65 = 70)
-    // Convert portrait Y=70 to landscape: move it up from 200 to ~70
-    EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 70, 
-                             100 + Font24.Height, 70 + Font24.Width * 5);
+    // Perform partial update with coordinates (keep working position)
+    // Position (100, 200) was working well, keep it
+    EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
+                             100 + Font24.Height, 200 + Font24.Width * 5);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
     
