@@ -562,8 +562,8 @@ static int init_partial_buffer(void) {
     // Step 1: Initialize with full display dimensions (like line 31 in test)
     Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     
-    // Step 2: Reconfigure for rotated text area (upgrade to Font24) 
-    Paint_NewImage(time_image_buffer, Font24.Height, Font24.Width * 5, ROTATE_270, WHITE);
+    // Step 2: Reconfigure for rotated text area (Font24 with extra padding for safety) 
+    Paint_NewImage(time_image_buffer, Font24.Height + 10, Font24.Width * 6, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -609,15 +609,15 @@ int refresh_time_partial(void) {
     // Select our time buffer (like display_time_test.c)
     Paint_SelectImage(time_image_buffer);
     
-    // Clear the time area (upgrade to Font24 for larger text)
-    Paint_ClearWindows(0, 0, Font24.Width * 5, Font24.Height, WHITE);
+    // Clear the time area (Font24 with padding for safety)
+    Paint_ClearWindows(0, 0, Font24.Width * 6, Font24.Height + 10, WHITE);
     
-    // Draw time string using Paint_DrawString_EN (upgrade to Font24)
+    // Draw time string using Paint_DrawString_EN (Font24)
     Paint_DrawString_EN(0, 0, time_str, &Font24, WHITE, BLACK);
     
-    // Perform partial update with coordinates (adjust for Font24 size)
+    // Perform partial update with coordinates (Font24 with padding)
     EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
-                             100 + Font24.Height, 200 + Font24.Width * 5);
+                             100 + Font24.Height + 10, 200 + Font24.Width * 6);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
     
