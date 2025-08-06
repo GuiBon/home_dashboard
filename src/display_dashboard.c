@@ -520,7 +520,7 @@ int init_partial_display(void) {
     Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     
     // Step 2: Reconfigure for rotated text area (like line 35 in test but for HH:MM) 
-    // Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
+    Paint_NewImage(time_image_buffer, Font20.Height, Font20.Width * 5, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -562,6 +562,12 @@ int refresh_time_partial(void) {
     snprintf(time_str, sizeof(time_str), "%02d:%02d", tm_info->tm_hour, tm_info->tm_min);
     
     LOG_DEBUG("Drawing time '%s' using Paint_DrawString_EN", time_str);
+    
+    // Re-initialize for partial mode (needed after full/fast refreshes)
+    if (EPD_7IN5_V2_Init_Part() != 0) {
+        LOG_ERROR("❌ Failed to re-initialize e-paper for partial refresh");
+        return -1;
+    }
     
     // Select our time buffer (like display_time_test.c)
     Paint_SelectImage(time_image_buffer);
