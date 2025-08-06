@@ -55,7 +55,7 @@ int main(void) {
         }
     
         // Format time string as "HH:MM"
-        char time_str[8];
+        char time_str[9];
         snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 
         Paint_ClearWindows(0, 0, Font20.Width * 8, Font20.Height, BLACK);
