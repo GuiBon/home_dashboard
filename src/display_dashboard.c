@@ -42,6 +42,7 @@ static EinkMode current_eink_mode = EINK_MODE_NONE;
 // Partial display state
 static UBYTE *time_image_buffer = NULL;
 static int partial_display_initialized = 0;
+static int refresh_counter = 0;  // Counter to track refreshes for periodic reset
 
 // ====================== BMP FILE GENERATION ======================
 
@@ -418,11 +419,9 @@ static int switch_eink_mode(RefreshType refresh_type) {
     
     // Skip if already in target mode
     if (current_eink_mode == target_mode) {
-        LOG_DEBUG("E-ink already in %s mode, skipping initialization", mode_name);
         return 0;
     }
     
-    LOG_DEBUG("Switching e-ink from mode %d to %s mode", current_eink_mode, mode_name);
     
     // Perform mode switch
     switch (target_mode) {
@@ -452,7 +451,6 @@ static int switch_eink_mode(RefreshType refresh_type) {
     }
     
     current_eink_mode = target_mode;
-    LOG_DEBUG("✅ E-ink switched to %s mode successfully", mode_name);
     return 0;
 }
 
@@ -483,7 +481,6 @@ int init_eink_hardware(void) {
     }
     
     // Clear display to ensure known state
-    LOG_DEBUG("Clearing display for hardware initialization...");
     EPD_7IN5_V2_Clear();
     
     eink_hardware_initialized = 1;
@@ -559,7 +556,6 @@ int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType 
     Paint_Clear(WHITE);
     
     // Load BMP file using Waveshare's GUI_ReadBmp function
-    LOG_DEBUG("Loading BMP using GUI_ReadBmp: %s", image_path);
     GUI_ReadBmp(image_path, 0, 0);
     
     // Display on e-ink using appropriate method
@@ -612,16 +608,8 @@ static int init_partial_buffer(void) {
         return -1;
     }
     
-    LOG_DEBUG("Allocated %lu bytes for time image buffer (full display buffer)", image_size);
-    
-    // Initialize paint library exactly like display_time_test.c - configure for rotated area
-    // Configure for the time display area with rotation
-    int area_width = 120;
-    int area_height = 30;
-    Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
-    Paint_SelectImage(time_image_buffer);
-    Paint_Clear(WHITE);
-    
+    LOG_INFO("⚡ Partial display buffer initialized (%lu bytes)", image_size);
+        
     partial_display_initialized = 1;
     LOG_INFO("✅ Partial display buffer initialized successfully");
     return 0;
@@ -654,7 +642,6 @@ int refresh_time_partial(void) {
     char time_str[6];
     snprintf(time_str, sizeof(time_str), "%02d:%02d", tm_info->tm_hour, tm_info->tm_min);
     
-    LOG_DEBUG("Drawing time '%s' using Paint_DrawString_EN", time_str);
     
     // Ensure we're in partial mode (switch if needed)
     if (switch_eink_mode(REFRESH_PARTIAL) != 0) {
@@ -666,8 +653,10 @@ int refresh_time_partial(void) {
     int height_start = 40;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
-    // Select our pre-configured time buffer (no reinitialization to avoid positioning issues)
+    // Reinitialize buffer configuration every time to ensure consistent state
+    Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
+    Paint_Clear(WHITE);
     
     // Create Cairo surface for time rendering (RGB24 format like main dashboard)
     cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height - 6);
@@ -715,7 +704,7 @@ int refresh_time_partial(void) {
     EPD_7IN5_V2_Display_Part(time_image_buffer, height_start, width_start, 
                              height_start + area_height, width_start + area_width);
     
-    LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
+    LOG_INFO("⏰ Time display updated: %s", time_str);
     
     return 0;
 }
