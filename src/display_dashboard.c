@@ -685,7 +685,7 @@ int refresh_time_partial(void) {
     Paint_SelectImage(time_image_buffer);
     
     // Create Cairo surface for time rendering (RGB24 format like main dashboard)
-    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width - 8, area_height - 8);
+    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height - 6);
     if (cairo_surface_status(time_surface) != CAIRO_STATUS_SUCCESS) {
         LOG_ERROR("❌ Failed to create Cairo surface for time");
         return -1;
