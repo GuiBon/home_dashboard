@@ -843,10 +843,6 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     cairo_text_extents_t text_extents;
     cairo_text_extents(cr, time_str, &text_extents);
     
-    printf("Text extents: width=%.1f, height=%.1f, x_bearing=%.1f, y_bearing=%.1f\n", 
-           text_extents.width, text_extents.height, text_extents.x_bearing, text_extents.y_bearing);
-    printf("Area size: %dx%d\n", width, height);
-    
     // Center the text properly using text extents
     int center_x = width / 2;
     int center_y = (height / 2) - (text_extents.y_bearing / 2);  // Adjust for baseline offset

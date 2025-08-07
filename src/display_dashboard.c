@@ -23,20 +23,6 @@
 #define BMP_BITS_PER_PIXEL 1
 #define BMP_COLOR_TABLE_SIZE 8  // 2 colors × 4 bytes each
 
-// Time display positioning constants (matches dashboard_render.c layout exactly)
-// From draw_header_section: time is at HEADER_X + HEADER_WIDTH/2, HEADER_Y + 65
-// That's 5 + 470/2, 5 + 65 = (240, 70) in portrait
-// For 90° clockwise rotation: (x,y) -> (y, height-1-x)  
-// So (240, 70) -> (70, 800-1-240) = (70, 559) - Wait, that doesn't match either
-// Let me use the actual observed position: time at far left (~50) and middle height (~260)
-#define TIME_DISPLAY_X_PORTRAIT 240  // Original X in portrait (HEADER_X + HEADER_WIDTH/2)
-#define TIME_DISPLAY_Y_PORTRAIT 70   // Original Y in portrait (HEADER_Y + 65)
-#define TIME_DISPLAY_X_ROTATED 50    // Observed position: far left of landscape screen
-#define TIME_DISPLAY_Y_ROTATED 240   // Observed position: middle height (matches calculation)
-#define TIME_DISPLAY_WIDTH 120       // Wide enough for "HH:MM" text
-#define TIME_DISPLAY_HEIGHT 40       // Tall enough for Font24
-#define TIME_FONT_CHAR_WIDTH 14      // Approximate character width for Font24
-#define TIME_STRING_LENGTH 5         // "HH:MM" = 5 characters
 
 // ====================== GLOBAL STATE ======================
 
@@ -724,9 +710,7 @@ int refresh_time_partial(void) {
     
     // Clear the area and load Cairo-generated BMP (load at origin to cover full area)
     Paint_ClearWindows(0, 0, area_width, area_height, WHITE);  // Clear inside border
-    printf("Loading BMP: %s at position (0,0), area: %dx%d\n", temp_time_bmp, area_width, area_height);
-    UBYTE bmp_result = GUI_ReadBmp(temp_time_bmp, 0, 6);  // Load BMP at origin
-    printf("GUI_ReadBmp result: %d\n", bmp_result);
+    GUI_ReadBmp(temp_time_bmp, 0, 6);  // Load BMP at origin
     
     // Perform partial update with coordinates (Font24 with padding)
     EPD_7IN5_V2_Display_Part(time_image_buffer, height_start, width_start, 
