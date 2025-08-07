@@ -842,8 +842,9 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     char time_str[MAX_TIME_BUFFER];
     snprintf(time_str, sizeof(time_str), "%02d:%02d", tm_info->tm_hour, tm_info->tm_min);
     
-    // Get text extents using the same font setup as draw_text_with_icons
-    set_font(cr, FONT_BOLD, FONT_SIZE_TIME);  // Use the same font setup function
+    // Clear any previous font state and set consistent font once
+    cairo_save(cr);
+    set_font(cr, FONT_BOLD, FONT_SIZE_TIME);
     
     cairo_text_extents_t text_extents;
     cairo_text_extents(cr, time_str, &text_extents);
@@ -852,10 +853,12 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     int center_x = ((width - text_extents.width) / 2) - 1;
     int center_y = (height - text_extents.y_bearing)/ 2;  // Adjust for baseline offset
     
-    // Draw time text directly with consistent font (bypass draw_text_with_icons to avoid character processing issues)
-    set_font(cr, FONT_BOLD, FONT_SIZE_TIME);
+    // Draw time text with already set font
     cairo_move_to(cr, center_x, center_y);
     cairo_show_text(cr, time_str);
+    
+    // Restore Cairo state to clear font state
+    cairo_restore(cr);
     
     // Cleanup fonts
     cleanup_dashboard_fonts();
