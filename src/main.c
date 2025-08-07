@@ -30,6 +30,7 @@
 #define MAX_DAYS_PER_MONTH 31
 #define SECONDS_PER_MINUTE 60
 #define MINUTES_PER_HOUR 60
+#define RETRY_INTERVAL_MINUTES 5  // Retry failed retrievals every 5 minutes
 
 // ====================== DASHBOARD ORCHESTRATOR ======================
 
@@ -46,6 +47,10 @@ typedef struct {
     int menu_changed;
     int calendar_changed;
     time_t last_change_time;  // Track when last change occurred
+    // Retry tracking for failed retrievals
+    time_t weather_retry_time;  // Next retry time for weather (0 = no retry needed)
+    time_t menu_retry_time;     // Next retry time for menu (0 = no retry needed)
+    time_t calendar_retry_time; // Next retry time for calendar (0 = no retry needed)
 } ComponentStatus;
 
 // Main orchestrator structure
@@ -273,6 +278,9 @@ DataOrchestrator* orchestrator_init(int debug) {
     orch->status.menu_available = 0;
     orch->status.calendar_available = 0;
     orch->status.last_change_time = 0;
+    orch->status.weather_retry_time = 0;
+    orch->status.menu_retry_time = 0;
+    orch->status.calendar_retry_time = 0;
     
     LOG_DEBUG("🚀 Orchestrator initialized");
     
@@ -359,6 +367,9 @@ void update_weather(DataOrchestrator *orch) {
             
             // Update cached data for fallback (always store successful data)
             orch->cached_weather_data = new_weather_data;
+            
+            // Clear retry timer on success
+            orch->status.weather_retry_time = 0;
         } else {
             // Weather retrieval failed - implement hourly boundary fallback
             time_t now = time(NULL);
@@ -381,6 +392,10 @@ void update_weather(DataOrchestrator *orch) {
                         "Failed to retrieve weather data");
                 LOG_ERROR("❌ Weather data retrieval failed and outside cached hour - showing error");
             }
+            
+            // Schedule retry in 5 minutes (regardless of fallback behavior)
+            orch->status.weather_retry_time = now + (RETRY_INTERVAL_MINUTES * 60);
+            LOG_DEBUG("🔄 Weather retry scheduled for %ld seconds from now", RETRY_INTERVAL_MINUTES * 60);
         }
     } else {
         orch->status.weather_available = 0;
@@ -416,12 +431,17 @@ void update_menu(DataOrchestrator *orch, time_t date) {
             orch->status.menu_available = 1;
             orch->status.menu_error[0] = '\0';
             orch->status.menu_changed = 1;  // Mark menu as changed
+            orch->status.menu_retry_time = 0;  // Clear retry timer on success
             LOG_INFO("✅ Menu data updated successfully");
         } else {
             orch->status.menu_available = 0;
             snprintf(orch->status.menu_error, sizeof(orch->status.menu_error), 
                     "Failed to retrieve menu data");
-            LOG_ERROR("Warning: Failed to update menu data");
+            
+            // Schedule retry in 5 minutes
+            time_t now = time(NULL);
+            orch->status.menu_retry_time = now + (RETRY_INTERVAL_MINUTES * 60);
+            LOG_ERROR("❌ Menu data retrieval failed - retry scheduled in %d minutes", RETRY_INTERVAL_MINUTES);
         }
     } else {
         orch->status.menu_available = 0;
@@ -462,12 +482,17 @@ void update_calendar(DataOrchestrator *orch, time_t date) {
             orch->status.calendar_available = 1;
             orch->status.calendar_error[0] = '\0';
             orch->status.calendar_changed = 1;  // Mark calendar as changed
+            orch->status.calendar_retry_time = 0;  // Clear retry timer on success
             LOG_INFO("✅ Calendar data updated successfully");
         } else {
             orch->status.calendar_available = 0;
             snprintf(orch->status.calendar_error, sizeof(orch->status.calendar_error), 
                     "Failed to retrieve calendar data");
-            LOG_ERROR("Warning: Failed to update calendar data");
+            
+            // Schedule retry in 5 minutes
+            time_t now = time(NULL);
+            orch->status.calendar_retry_time = now + (RETRY_INTERVAL_MINUTES * 60);
+            LOG_ERROR("❌ Calendar data retrieval failed - retry scheduled in %d minutes", RETRY_INTERVAL_MINUTES);
         }
     } else {
         orch->status.calendar_available = 0;
@@ -488,6 +513,31 @@ void update_calendar(DataOrchestrator *orch, time_t date) {
     // Schedule batched display update if calendar changed
     if (orch->status.calendar_changed) {
         schedule_batched_display_update(orch, date);
+    }
+}
+
+// Check for and handle pending retries
+void check_and_handle_retries(DataOrchestrator *orch, time_t date) {
+    if (!orch) return;
+    
+    time_t now = time(NULL);
+    
+    // Check weather retry
+    if (orch->status.weather_retry_time > 0 && now >= orch->status.weather_retry_time) {
+        LOG_DEBUG("🔄 Attempting weather data retry...");
+        update_weather(orch);
+    }
+    
+    // Check menu retry
+    if (orch->status.menu_retry_time > 0 && now >= orch->status.menu_retry_time) {
+        LOG_DEBUG("🔄 Attempting menu data retry...");
+        update_menu(orch, date);
+    }
+    
+    // Check calendar retry
+    if (orch->status.calendar_retry_time > 0 && now >= orch->status.calendar_retry_time) {
+        LOG_DEBUG("🔄 Attempting calendar data retry...");
+        update_calendar(orch, date);
     }
 }
 
@@ -958,6 +1008,9 @@ int main(int argc, char *argv[]) {
             
             // Check for pending batched display updates
             check_and_perform_batched_update(orch, date);
+            
+            // Check for and handle pending retries
+            check_and_handle_retries(orch, date);
         }
         
         LOG_DEBUG("🛑 Orchestrator stopped");
