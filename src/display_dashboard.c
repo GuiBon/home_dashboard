@@ -675,8 +675,8 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    int area_width = Font24.Width * 7;
-    int area_height = Font24.Height + 10;
+    int area_width = 120;
+    int area_height = 30;
     int height_start = 40;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
