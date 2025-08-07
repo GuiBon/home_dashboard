@@ -822,11 +822,6 @@ void draw_calendar_section(cairo_t *cr, const CalendarData *calendar_data) {
 int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int height) {
     if (!cr) return -1;
     
-    // Initialize fonts
-    if (!init_dashboard_fonts()) {
-        LOG_ERROR("❌ Failed to initialize dashboard fonts for clock");
-        return -1;
-    }
     
     // Set white background
     cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
@@ -835,7 +830,6 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     // Format time string
     struct tm *tm_info = localtime(&current_time);
     if (!tm_info) {
-        cleanup_dashboard_fonts();
         return -1;
     }
     
@@ -859,9 +853,6 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     
     // Restore Cairo state to clear font state
     cairo_restore(cr);
-    
-    // Cleanup fonts
-    cleanup_dashboard_fonts();
     
     return 0;
 }
