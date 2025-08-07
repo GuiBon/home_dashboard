@@ -687,8 +687,8 @@ int refresh_time_partial(void) {
     // Clear the time area (Font24 with padding for safety)
     Paint_ClearWindows(0, 0, area_width, area_height, WHITE);
     
-    // Draw a border around the partial update area for debugging (start at 1,1 to avoid rotation clipping)
-    Paint_DrawRectangle(1, 1, area_width - 2, area_height - 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    // Draw a border around the partial update area for debugging (full border)
+    Paint_DrawRectangle(0, 0, area_width - 1, area_height - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
     // Create Cairo surface for time rendering (RGB24 format like main dashboard)
     cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height);
@@ -728,10 +728,10 @@ int refresh_time_partial(void) {
     cairo_destroy(cr);
     cairo_surface_destroy(time_surface);
     
-    // Clear the area and load Cairo-generated BMP
-    Paint_ClearWindows(2, 2, area_width - 4, area_height - 4, WHITE);  // Clear inside border
-    printf("Loading BMP: %s at position (2,2), area: %dx%d\n", temp_time_bmp, area_width, area_height);
-    UBYTE bmp_result = GUI_ReadBmp(temp_time_bmp, 2, 2);  // Load BMP inside border
+    // Clear the area and load Cairo-generated BMP (load at origin to cover full area)
+    Paint_ClearWindows(1, 1, area_width - 2, area_height - 2, WHITE);  // Clear inside border
+    printf("Loading BMP: %s at position (0,0), area: %dx%d\n", temp_time_bmp, area_width, area_height);
+    UBYTE bmp_result = GUI_ReadBmp(temp_time_bmp, 0, 0);  // Load BMP at origin
     printf("GUI_ReadBmp result: %d\n", bmp_result);
     
     // Perform partial update with coordinates (Font24 with padding)
