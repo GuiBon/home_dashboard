@@ -193,6 +193,9 @@ static void draw_text_with_icons(cairo_t *cr, double x, double y, const char *te
                                 FontWeight weight, int font_size, TextAlignment align) {
     if (!cr || !text || !*text) return;
     
+    // Clear any previous font state to prevent bold text accumulation
+    cairo_save(cr);
+    
     cairo_text_extents_t extents;
     double current_x = x;
     
@@ -257,6 +260,9 @@ static void draw_text_with_icons(cairo_t *cr, double x, double y, const char *te
             }
         }
     }
+    
+    // Restore Cairo context to clear font state
+    cairo_restore(cr);
 }
 
 /**
