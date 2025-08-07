@@ -615,8 +615,17 @@ int refresh_time_partial(void) {
     // Draw a border around the partial update area for debugging (start at 1,1 to avoid rotation clipping)
     Paint_DrawRectangle(1, 1, Font24.Width * 6 - 2, Font24.Height + 10 - 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
-    // Draw time string using Paint_DrawString_EN (Font24) - offset by 3 pixels for border
-    Paint_DrawString_EN(3, 3, time_str, &Font24, WHITE, BLACK);
+    // Center the text in the area
+    int area_width = Font24.Width * 6;
+    int area_height = Font24.Height + 10;
+    int text_width = Font24.Width * 5;  // 5 characters for "HH:MM"
+    int text_height = Font24.Height;
+    
+    int center_x = (area_width - text_width) / 2;
+    int center_y = (area_height - text_height) / 2;
+    
+    // Draw time string centered in the area
+    Paint_DrawString_EN(center_x, center_y, time_str, &Font24, WHITE, BLACK);
     
     // Perform partial update with coordinates (Font24 with padding)
     EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
