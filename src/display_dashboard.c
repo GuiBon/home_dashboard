@@ -715,8 +715,8 @@ int refresh_time_partial(void) {
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
-    // Create Cairo surface for time rendering (A1 format for direct monochrome output)
-    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_A1, area_width, area_height - 6);
+    // Create Cairo surface for time rendering (RGB24 format)
+    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height - 6);
     if (cairo_surface_status(time_surface) != CAIRO_STATUS_SUCCESS) {
         LOG_ERROR("❌ Failed to create Cairo surface for time");
         return -1;
@@ -739,10 +739,10 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Flush and save as BMP (use A1 writer for direct monochrome output)
+    // Flush and save as BMP (use RGB24 writer)
     cairo_surface_flush(time_surface);
     const char *temp_time_bmp = "/tmp/partial_time.bmp";
-    if (!write_a1_surface_as_bmp(time_surface, temp_time_bmp)) {
+    if (!write_surface_as_bmp_no_rotate(time_surface, temp_time_bmp)) {
         LOG_ERROR("❌ Failed to write time BMP");
         cairo_destroy(cr);
         cairo_surface_destroy(time_surface);

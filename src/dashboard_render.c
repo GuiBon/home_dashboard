@@ -846,9 +846,6 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     cairo_save(cr);
     set_font(cr, FONT_BOLD, FONT_SIZE_TIME);
     
-    // For A1 format, ensure text is fully opaque black (alpha = 1.0)
-    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 1.0);
-    
     cairo_text_extents_t text_extents;
     cairo_text_extents(cr, time_str, &text_extents);
     
