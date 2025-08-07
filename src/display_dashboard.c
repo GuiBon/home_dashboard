@@ -629,7 +629,7 @@ int refresh_time_partial(void) {
     Paint_DrawString_EN(center_x, center_y, time_str, &Font24, WHITE, BLACK);
     
     // Perform partial update with coordinates (Font24 with padding)
-    EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
+    EPD_7IN5_V2_Display_Part(time_image_buffer, 200, 200, 
                              100 + area_height, 200 + area_width);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
