@@ -836,9 +836,20 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     char time_str[MAX_TIME_BUFFER];
     snprintf(time_str, sizeof(time_str), "%02d:%02d", tm_info->tm_hour, tm_info->tm_min);
     
-    // Center the time text in the surface
+    // Get text extents to properly center the text
+    cairo_select_font_face(cr, "Liberation Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, FONT_SIZE_TIME);
+    
+    cairo_text_extents_t text_extents;
+    cairo_text_extents(cr, time_str, &text_extents);
+    
+    printf("Text extents: width=%.1f, height=%.1f, x_bearing=%.1f, y_bearing=%.1f\n", 
+           text_extents.width, text_extents.height, text_extents.x_bearing, text_extents.y_bearing);
+    printf("Area size: %dx%d\n", width, height);
+    
+    // Center the text properly using text extents
     int center_x = width / 2;
-    int center_y = height / 2;
+    int center_y = (height / 2) - (text_extents.y_bearing / 2);  // Adjust for baseline offset
     
     // Draw time text using same style as header
     draw_text_with_icons(cr, center_x, center_y, time_str, FONT_BOLD, FONT_SIZE_TIME, ALIGN_CENTER);
