@@ -854,7 +854,7 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     
     // Draw time text directly with consistent font (bypass draw_text_with_icons to avoid character processing issues)
     set_font(cr, FONT_BOLD, FONT_SIZE_TIME);
-    cairo_move_to(cr, center_x + 10, center_y);
+    cairo_move_to(cr, center_x - 50, center_y);
     cairo_show_text(cr, time_str);
     
     // Cleanup fonts
