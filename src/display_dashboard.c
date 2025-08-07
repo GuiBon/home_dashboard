@@ -78,6 +78,59 @@ static void write_le16(unsigned char *buffer, int offset, int value) {
 }
 
 /**
+ * Write A1 Cairo surface as simple unrotated monochrome BMP
+ */
+static int write_a1_surface_as_bmp(cairo_surface_t *surface, const char *filename) {
+    int width = cairo_image_surface_get_width(surface);
+    int height = cairo_image_surface_get_height(surface);
+    unsigned char *data = cairo_image_surface_get_data(surface);
+    int stride = cairo_image_surface_get_stride(surface);
+    
+    FILE *f = fopen(filename, "wb");
+    if (!f) {
+        LOG_ERROR("❌ Failed to create A1 BMP file: %s", filename);
+        return 0;
+    }
+    
+    // Calculate row padding (rows must be aligned to 4 bytes)
+    int bytes_per_row = (width + 7) / 8;
+    int row_padded = (bytes_per_row + 3) & (~3);
+    int pixel_data_size = row_padded * height;
+    int file_size = BMP_HEADER_SIZE + pixel_data_size;
+    
+    // Create BMP header
+    unsigned char bmp_header[BMP_HEADER_SIZE] = {0};
+    bmp_header[0] = 'B'; bmp_header[1] = 'M';
+    write_le32(bmp_header, 2, file_size);
+    write_le32(bmp_header, 10, BMP_HEADER_SIZE);
+    write_le32(bmp_header, 14, 40);
+    write_le32(bmp_header, 18, width);
+    write_le32(bmp_header, 22, height);
+    write_le16(bmp_header, 26, 1);
+    write_le16(bmp_header, 28, 1);
+    write_le32(bmp_header, 34, pixel_data_size);
+    write_le32(bmp_header, 46, 2);
+    write_le32(bmp_header, 50, 2);
+    
+    // Color table: Black and White
+    bmp_header[58] = 0xFF; bmp_header[59] = 0xFF; bmp_header[60] = 0xFF;
+    
+    fwrite(bmp_header, 1, BMP_HEADER_SIZE, f);
+    
+    // Write pixel data (A1 format is already packed, just copy with padding)
+    unsigned char *row_data = malloc(row_padded);
+    for (int y = height - 1; y >= 0; y--) {
+        memset(row_data, 0, row_padded);
+        memcpy(row_data, data + y * stride, bytes_per_row);
+        fwrite(row_data, 1, row_padded, f);
+    }
+    
+    free(row_data);
+    fclose(f);
+    return 1;
+}
+
+/**
  * Write Cairo surface as monochrome BMP file (1-bit, compatible with e-ink)
  */
 static int write_surface_as_bmp(cairo_surface_t *surface, const char *filename) {
@@ -620,8 +673,8 @@ int refresh_time_partial(void) {
     // Draw a border around the partial update area for debugging (start at 1,1 to avoid rotation clipping)
     Paint_DrawRectangle(1, 1, area_width - 2, area_height - 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
-    // Create Cairo surface for time rendering (RGB24 format like main dashboard)
-    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height);
+    // Create Cairo surface for time rendering (A1 format for direct monochrome)
+    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_A1, area_width, area_height);
     if (cairo_surface_status(time_surface) != CAIRO_STATUS_SUCCESS) {
         LOG_ERROR("❌ Failed to create Cairo surface for time");
         return -1;
@@ -644,10 +697,10 @@ int refresh_time_partial(void) {
         return -1;
     }
     
-    // Flush and save as BMP
+    // Flush and save as BMP (use A1 writer without rotation)
     cairo_surface_flush(time_surface);
     const char *temp_time_bmp = "/tmp/partial_time.bmp";
-    if (!write_surface_as_bmp(time_surface, temp_time_bmp)) {
+    if (!write_a1_surface_as_bmp(time_surface, temp_time_bmp)) {
         LOG_ERROR("❌ Failed to write time BMP");
         cairo_destroy(cr);
         cairo_surface_destroy(time_surface);
