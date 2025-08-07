@@ -677,7 +677,7 @@ int refresh_time_partial(void) {
     
     int area_width = 120;
     int area_height = 30;
-    int height_start = 45;
+    int height_start = 40;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
     // Select our time buffer (like display_time_test.c)
@@ -725,12 +725,10 @@ int refresh_time_partial(void) {
     // Clear the area and load Cairo-generated BMP (load at origin to cover full area)
     Paint_ClearWindows(0, 0, area_width, area_height, WHITE);  // Clear inside border
     printf("Loading BMP: %s at position (0,0), area: %dx%d\n", temp_time_bmp, area_width, area_height);
-    UBYTE bmp_result = GUI_ReadBmp(temp_time_bmp, 0, 0);  // Load BMP at origin
+    UBYTE bmp_result = GUI_ReadBmp(temp_time_bmp, 5, 0);  // Load BMP at origin
     printf("GUI_ReadBmp result: %d\n", bmp_result);
     
     // Perform partial update with coordinates (Font24 with padding)
-    // x coordinates : vertical position
-    // y coordinates : horizontal position
     EPD_7IN5_V2_Display_Part(time_image_buffer, height_start, width_start, 
                              height_start + area_height, width_start + area_width);
     
