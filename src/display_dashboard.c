@@ -612,8 +612,11 @@ int refresh_time_partial(void) {
     // Clear the time area (Font24 with padding for safety)
     Paint_ClearWindows(0, 0, Font24.Width * 6, Font24.Height + 10, WHITE);
     
-    // Draw time string using Paint_DrawString_EN (Font24)
-    Paint_DrawString_EN(0, 0, time_str, &Font24, WHITE, BLACK);
+    // Draw a border around the partial update area for debugging
+    Paint_DrawRectangle(0, 0, Font24.Width * 6 - 1, Font24.Height + 10 - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    
+    // Draw time string using Paint_DrawString_EN (Font24) - offset by 2 pixels for border
+    Paint_DrawString_EN(2, 2, time_str, &Font24, WHITE, BLACK);
     
     // Perform partial update with coordinates (Font24 with padding)
     EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
