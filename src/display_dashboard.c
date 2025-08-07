@@ -676,7 +676,7 @@ int refresh_time_partial(void) {
     }
     
     int area_width = Font24.Width * 7;
-    int area_height = Font24.Height + 20;
+    int area_height = Font24.Height + 10;
     int height_start = 40;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
@@ -686,10 +686,7 @@ int refresh_time_partial(void) {
     
     // Clear the time area (Font24 with padding for safety)
     Paint_ClearWindows(0, 0, area_width, area_height, WHITE);
-    
-    // Draw a border around the partial update area for debugging (full border)
-    Paint_DrawRectangle(0, 0, area_width - 1, area_height - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
-    
+
     // Create Cairo surface for time rendering (RGB24 format like main dashboard)
     cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height);
     if (cairo_surface_status(time_surface) != CAIRO_STATUS_SUCCESS) {
