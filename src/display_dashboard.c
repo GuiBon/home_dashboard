@@ -607,6 +607,8 @@ int refresh_time_partial(void) {
     
     int area_width = Font24.Width * 7;
     int area_height = Font24.Height + 20;
+    int height_start = 80;
+    int width_start = 250;
 
     // Select our time buffer (like display_time_test.c)
     Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
@@ -631,8 +633,8 @@ int refresh_time_partial(void) {
     // Perform partial update with coordinates (Font24 with padding)
     // x coordinates : vertical position
     // y coordinates : horizontal position
-    EPD_7IN5_V2_Display_Part(time_image_buffer, 200, 200, 
-                             200 + area_height, 200 + area_width);
+    EPD_7IN5_V2_Display_Part(time_image_buffer, height_start, width_start, 
+                             height_start + area_height, width_start + area_width);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
     
