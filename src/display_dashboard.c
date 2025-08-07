@@ -607,7 +607,7 @@ int refresh_time_partial(void) {
     
     int area_width = Font24.Width * 7;
     int area_height = Font24.Height + 20;
-    int height_start = 50;
+    int height_start = 40;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
     // Select our time buffer (like display_time_test.c)
