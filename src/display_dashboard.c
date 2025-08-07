@@ -686,6 +686,9 @@ int refresh_time_partial(void) {
     
     // Clear the time area (Font24 with padding for safety)
     Paint_ClearWindows(0, 0, area_width, area_height, WHITE);
+    
+    // Draw a border around the partial update area for debugging
+    Paint_DrawRectangle(1, 1, area_width - 1, area_height - 1, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
 
     // Create Cairo surface for time rendering (RGB24 format like main dashboard)
     cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, area_width, area_height);
