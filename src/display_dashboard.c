@@ -677,7 +677,7 @@ int refresh_time_partial(void) {
     
     int area_width = 120;
     int area_height = 30;
-    int height_start = 40;
+    int height_start = 45;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
     // Select our time buffer (like display_time_test.c)
