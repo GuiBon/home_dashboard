@@ -849,11 +849,13 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     cairo_text_extents(cr, time_str, &text_extents);
     
     // Center the text properly using text extents
-    int center_x = width / 2;
+    int center_x = (width / 2) - (text_extents.x_bearing / 2);
     int center_y = (height / 2) - (text_extents.y_bearing / 2);  // Adjust for baseline offset
     
-    // Draw time text using same style as header
-    draw_text_with_icons(cr, center_x, center_y, time_str, FONT_BOLD, FONT_SIZE_TIME, ALIGN_CENTER);
+    // Draw time text directly with consistent font (bypass draw_text_with_icons to avoid character processing issues)
+    set_font(cr, FONT_BOLD, FONT_SIZE_TIME);
+    cairo_move_to(cr, center_x, center_y);
+    cairo_show_text(cr, time_str);
     
     // Cleanup fonts
     cleanup_dashboard_fonts();
