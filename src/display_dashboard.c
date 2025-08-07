@@ -563,7 +563,6 @@ static int init_partial_buffer(void) {
     Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
     
     // Step 2: Reconfigure for rotated text area (Font24 with extra padding for safety) 
-    Paint_NewImage(time_image_buffer, Font24.Height + 10, Font24.Width * 6, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -606,18 +605,20 @@ int refresh_time_partial(void) {
         return -1;
     }
     
+    int area_width = Font24.Width * 7;
+    int area_height = Font24.Height + 20;
+
     // Select our time buffer (like display_time_test.c)
+    Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     
     // Clear the time area (Font24 with padding for safety)
-    Paint_ClearWindows(0, 0, Font24.Width * 6, Font24.Height + 10, WHITE);
+    Paint_ClearWindows(0, 0, area_width, area_height, WHITE);
     
     // Draw a border around the partial update area for debugging (start at 1,1 to avoid rotation clipping)
-    Paint_DrawRectangle(1, 1, Font24.Width * 6 - 2, Font24.Height + 10 - 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
+    Paint_DrawRectangle(1, 1, area_width - 2, area_height - 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
     // Center the text in the area
-    int area_width = Font24.Width * 6;
-    int area_height = Font24.Height + 10;
     int text_width = Font24.Width * 5;  // 5 characters for "HH:MM"
     int text_height = Font24.Height;
     
@@ -629,7 +630,7 @@ int refresh_time_partial(void) {
     
     // Perform partial update with coordinates (Font24 with padding)
     EPD_7IN5_V2_Display_Part(time_image_buffer, 100, 200, 
-                             100 + Font24.Height + 10, 200 + Font24.Width * 6);
+                             100 + area_height, 200 + area_width);
     
     LOG_DEBUG("⏰ Time display updated via partial refresh: %s", time_str);
     
