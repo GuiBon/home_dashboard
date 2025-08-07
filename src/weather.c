@@ -317,6 +317,9 @@ int get_weather_data(WeatherClient *client, WeatherData *data) {
     
     cJSON_Delete(json);
     
+    // Set timestamp for successful weather data retrieval
+    data->last_updated = time(NULL);
+    
     LOG_DEBUG("✅ Weather data retrieved successfully (current + %d forecasts)", data->forecast_count);
     
     return 0;

@@ -614,11 +614,11 @@ static int init_partial_buffer(void) {
     
     LOG_DEBUG("Allocated %lu bytes for time image buffer (full display buffer)", image_size);
     
-    // Initialize paint library exactly like display_time_test.c - TWO STEP PROCESS
-    // Step 1: Initialize with full display dimensions (like line 31 in test)
-    Paint_NewImage(time_image_buffer, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT, 0, WHITE);
-    
-    // Step 2: Reconfigure for rotated text area (Font24 with extra padding for safety) 
+    // Initialize paint library exactly like display_time_test.c - configure for rotated area
+    // Configure for the time display area with rotation
+    int area_width = 120;
+    int area_height = 30;
+    Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
     Paint_SelectImage(time_image_buffer);
     Paint_Clear(WHITE);
     
@@ -666,8 +666,7 @@ int refresh_time_partial(void) {
     int height_start = 40;
     int width_start = (EINK_WIDTH - area_width) / 2;
 
-    // Select our time buffer (like display_time_test.c)
-    Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
+    // Select our pre-configured time buffer (no reinitialization to avoid positioning issues)
     Paint_SelectImage(time_image_buffer);
     
     // Create Cairo surface for time rendering (RGB24 format like main dashboard)

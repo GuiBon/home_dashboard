@@ -32,6 +32,7 @@ typedef struct {
     int forecast_count;
     time_t sunrise;
     time_t sunset;
+    time_t last_updated;  // Timestamp of last successful weather data retrieval
 } WeatherData;
 
 // Weather client structure (opaque)

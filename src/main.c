@@ -56,6 +56,7 @@ typedef struct {
     
     WeatherData weather_data;
     WeatherData previous_weather_data;  // For comparison to detect changes
+    WeatherData cached_weather_data;    // Last successful weather data for fallback
     MenuData menu_data;
     CalendarData calendar_data;
     ComponentStatus status;
@@ -78,6 +79,19 @@ static DataOrchestrator *g_orchestrator = NULL;
 
 // Forward declaration  
 static void update_eink_display_batched(DataOrchestrator *orch, time_t date);
+
+// Utility function to check if two timestamps are in the same hour
+static int same_hour(time_t time1, time_t time2) {
+    struct tm *tm1 = localtime(&time1);
+    struct tm *tm2 = localtime(&time2);
+    
+    if (!tm1 || !tm2) return 0;
+    
+    return (tm1->tm_year == tm2->tm_year && 
+            tm1->tm_mon == tm2->tm_mon && 
+            tm1->tm_mday == tm2->tm_mday && 
+            tm1->tm_hour == tm2->tm_hour);
+}
 
 // Centralized function to update e-ink display based on batched changes
 static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
@@ -250,6 +264,7 @@ DataOrchestrator* orchestrator_init(int debug) {
     memset(&orch->calendar_data, 0, sizeof(CalendarData));
     memset(&orch->weather_data, 0, sizeof(WeatherData));
     memset(&orch->previous_weather_data, 0, sizeof(WeatherData));
+    memset(&orch->cached_weather_data, 0, sizeof(WeatherData));
     memset(&orch->menu_data, 0, sizeof(MenuData));
     
     // Initialize component status
@@ -324,6 +339,7 @@ void update_weather(DataOrchestrator *orch) {
         
         int result = get_weather_data(orch->weather_client, &new_weather_data);
         if (result == 0) {
+            // Weather retrieval successful
             orch->status.weather_available = 1;
             orch->status.weather_error[0] = '\0';
             
@@ -340,11 +356,31 @@ void update_weather(DataOrchestrator *orch) {
             // Store previous data and update current data
             orch->previous_weather_data = orch->weather_data;
             orch->weather_data = new_weather_data;
+            
+            // Update cached data for fallback (always store successful data)
+            orch->cached_weather_data = new_weather_data;
         } else {
-            orch->status.weather_available = 0;
-            snprintf(orch->status.weather_error, sizeof(orch->status.weather_error), 
-                    "Failed to retrieve weather data");
-            LOG_ERROR("Warning: Failed to update weather data");
+            // Weather retrieval failed - implement hourly boundary fallback
+            time_t now = time(NULL);
+            
+            // Check if we have cached weather data and if it's from the same hour
+            if (orch->cached_weather_data.last_updated > 0 && same_hour(now, orch->cached_weather_data.last_updated)) {
+                // Within same hour - use cached data
+                orch->status.weather_available = 1;
+                orch->status.weather_error[0] = '\0';
+                
+                // Use cached data but don't mark as changed (prevents unnecessary updates)
+                orch->weather_data = orch->cached_weather_data;
+                orch->status.weather_changed = 0;
+                
+                LOG_INFO("🌤️  Using cached weather data (retrieval failed but within same hour)");
+            } else {
+                // Outside same hour or no cached data - show error
+                orch->status.weather_available = 0;
+                snprintf(orch->status.weather_error, sizeof(orch->status.weather_error), 
+                        "Failed to retrieve weather data");
+                LOG_ERROR("❌ Weather data retrieval failed and outside cached hour - showing error");
+            }
         }
     } else {
         orch->status.weather_available = 0;
