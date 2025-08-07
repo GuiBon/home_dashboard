@@ -607,8 +607,8 @@ int refresh_time_partial(void) {
     
     int area_width = Font24.Width * 7;
     int area_height = Font24.Height + 20;
-    int height_start = 80;
-    int width_start = 250;
+    int height_start = 50;
+    int width_start = (EINK_WIDTH - area_width) / 2;
 
     // Select our time buffer (like display_time_test.c)
     Paint_NewImage(time_image_buffer, area_height, area_width, ROTATE_270, WHITE);
