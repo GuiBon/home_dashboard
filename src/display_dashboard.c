@@ -620,15 +620,47 @@ int refresh_time_partial(void) {
     // Draw a border around the partial update area for debugging (start at 1,1 to avoid rotation clipping)
     Paint_DrawRectangle(1, 1, area_width - 2, area_height - 2, BLACK, DOT_PIXEL_1X1, DRAW_FILL_EMPTY);
     
-    // Center the text in the area
-    int text_width = Font24.Width * 5;  // 5 characters for "HH:MM"
-    int text_height = Font24.Height;
+    // Create Cairo surface for time rendering (A1 format for monochrome)
+    cairo_surface_t *time_surface = cairo_image_surface_create(CAIRO_FORMAT_A1, area_width, area_height);
+    if (cairo_surface_status(time_surface) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo surface for time");
+        return -1;
+    }
     
-    int center_x = (area_width - text_width) / 2;
-    int center_y = (area_height - text_height) / 2;
+    // Create Cairo context
+    cairo_t *cr = cairo_create(time_surface);
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+        LOG_ERROR("❌ Failed to create Cairo context for time");
+        cairo_surface_destroy(time_surface);
+        return -1;
+    }
     
-    // Draw time string centered in the area
-    Paint_DrawString_EN(center_x, center_y, time_str, &Font24, WHITE, BLACK);
+    // Get current time and render clock (handles fonts, background and text)
+    time_t current_time = time(NULL);
+    if (render_clock_to_surface(cr, current_time, area_width, area_height) != 0) {
+        LOG_ERROR("❌ Failed to render clock to surface");
+        cairo_destroy(cr);
+        cairo_surface_destroy(time_surface);
+        return -1;
+    }
+    
+    // Flush and save as BMP
+    cairo_surface_flush(time_surface);
+    const char *temp_time_bmp = "/tmp/partial_time.bmp";
+    if (!write_surface_as_bmp(time_surface, temp_time_bmp)) {
+        LOG_ERROR("❌ Failed to write time BMP");
+        cairo_destroy(cr);
+        cairo_surface_destroy(time_surface);
+        return -1;
+    }
+    
+    // Cleanup Cairo objects
+    cairo_destroy(cr);
+    cairo_surface_destroy(time_surface);
+    
+    // Clear the area and load Cairo-generated BMP
+    Paint_ClearWindows(2, 2, area_width - 4, area_height - 4, WHITE);  // Clear inside border
+    GUI_ReadBmp(temp_time_bmp, 2, 2);  // Load BMP inside border
     
     // Perform partial update with coordinates (Font24 with padding)
     // x coordinates : vertical position

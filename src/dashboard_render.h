@@ -88,4 +88,7 @@ void draw_weather_section(cairo_t *cr, const WeatherData *weather_data);
 void draw_menu_section(cairo_t *cr, const MenuData *menu_data, time_t display_date);
 void draw_calendar_section(cairo_t *cr, const CalendarData *calendar_data);
 
+// Clock rendering for partial updates
+int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int height);
+
 #endif // DASHBOARD_RENDER_H
