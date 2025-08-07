@@ -842,9 +842,8 @@ int render_clock_to_surface(cairo_t *cr, time_t current_time, int width, int hei
     char time_str[MAX_TIME_BUFFER];
     snprintf(time_str, sizeof(time_str), "%02d:%02d", tm_info->tm_hour, tm_info->tm_min);
     
-    // Get text extents to properly center the text
-    cairo_select_font_face(cr, "Liberation Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, FONT_SIZE_TIME);
+    // Get text extents using the same font setup as draw_text_with_icons
+    set_font(cr, FONT_BOLD, FONT_SIZE_TIME);  // Use the same font setup function
     
     cairo_text_extents_t text_extents;
     cairo_text_extents(cr, time_str, &text_extents);
