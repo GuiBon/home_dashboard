@@ -356,7 +356,8 @@ static void draw_section_border(cairo_t *cr, const char *title, int x, int y, in
                 // Extract text (after space)
                 const char *text_part = space_pos + 1;
                 
-                // Draw icon with vertical offset for better alignment
+                // Draw icon with vertical offset for better alignment (with font isolation)
+                cairo_save(cr);
                 set_material_font(cr, FONT_SIZE_HEADER);
                 cairo_move_to(cr, x + SECTION_MARGIN, y + SECTION_TITLE_Y_OFFSET + ICON_VERTICAL_OFFSET);
                 cairo_show_text(cr, icon);
@@ -364,17 +365,22 @@ static void draw_section_border(cairo_t *cr, const char *title, int x, int y, in
                 // Calculate icon width for text positioning
                 cairo_text_extents_t icon_extents;
                 cairo_text_extents(cr, icon, &icon_extents);
+                cairo_restore(cr);
                 
-                // Draw text at normal position
+                // Draw text at normal position (with font isolation)
+                cairo_save(cr);
                 set_font(cr, FONT_BOLD, FONT_SIZE_HEADER);
                 cairo_move_to(cr, x + SECTION_MARGIN + icon_extents.x_advance + 5, y + SECTION_TITLE_Y_OFFSET);
                 cairo_show_text(cr, text_part);
+                cairo_restore(cr);
             }
         } else {
-            // No icon, draw as regular text
+            // No icon, draw as regular text (with font isolation)
+            cairo_save(cr);
             set_font(cr, FONT_BOLD, FONT_SIZE_HEADER);
             cairo_move_to(cr, x + SECTION_MARGIN, y + SECTION_TITLE_Y_OFFSET);
             cairo_show_text(cr, title);
+            cairo_restore(cr);
         }
         
         // Draw separator line under title
@@ -570,22 +576,35 @@ void draw_weather_section(cairo_t *cr, const WeatherData *weather_data) {
     
     // Calculate positioning for centered weather icon and temperature
     cairo_text_extents_t temp_extents, weather_icon_extents;
+    
+    // Isolate large temperature font calculations
+    cairo_save(cr);
     set_font(cr, FONT_BOLD, FONT_SIZE_LARGE_TEMP);
     cairo_text_extents(cr, temp_str, &temp_extents);
+    cairo_restore(cr);
     
+    // Isolate large weather icon font calculations
+    cairo_save(cr);
     set_material_font(cr, FONT_SIZE_WEATHER_ICON);
     cairo_text_extents(cr, weather_data->current.icon_unicode, &weather_icon_extents);
+    cairo_restore(cr);
     
     double weather_total_width = weather_icon_extents.width + WEATHER_ICON_TEMP_SPACING + temp_extents.width;
     double start_x = WEATHER_X + SECTION_MARGIN + (WEATHER_LEFT_SECTION_WIDTH - weather_total_width) / 2;
     
-    // Draw weather icon and temperature
+    // Draw weather icon with font isolation
+    cairo_save(cr);
+    set_material_font(cr, FONT_SIZE_WEATHER_ICON);
     cairo_move_to(cr, start_x, content_y + 55);
     cairo_show_text(cr, weather_data->current.icon_unicode);
+    cairo_restore(cr);
     
+    // Draw temperature with font isolation
+    cairo_save(cr);
     set_font(cr, FONT_BOLD, FONT_SIZE_LARGE_TEMP);
     cairo_move_to(cr, start_x + weather_icon_extents.width + WEATHER_ICON_TEMP_SPACING, content_y + 45);
     cairo_show_text(cr, temp_str);
+    cairo_restore(cr);
     
     // Draw weather description centered below
     draw_text_with_icons(cr, WEATHER_X + SECTION_MARGIN + WEATHER_LEFT_SECTION_WIDTH/2, content_y + 85,
@@ -622,6 +641,9 @@ void draw_weather_section(cairo_t *cr, const WeatherData *weather_data) {
         int x = (i < WEATHER_FORECAST_ITEMS_PER_COL) ? col1_x : col2_x;
         int y = item_y + (i % WEATHER_FORECAST_ITEMS_PER_COL) * WEATHER_FORECAST_LINE_HEIGHT;
         
+        // Isolate each forecast item to prevent font state accumulation
+        cairo_save(cr);
+        
         // Draw time part
         char time_part[8];
         snprintf(time_part, sizeof(time_part), "%02d:%02d ", tm_info->tm_hour, tm_info->tm_min);
@@ -645,6 +667,8 @@ void draw_weather_section(cairo_t *cr, const WeatherData *weather_data) {
         set_font(cr, FONT_REGULAR, FONT_SIZE_TINY);
         cairo_move_to(cr, x + time_extents.x_advance + icon_extents.x_advance, y);
         cairo_show_text(cr, temp_part);
+        
+        cairo_restore(cr);
     }
 }
 

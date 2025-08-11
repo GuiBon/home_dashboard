@@ -74,7 +74,6 @@ typedef struct {
     
     volatile int running;
     int debug;
-    time_t date;
 } DataOrchestrator;
 
 static DataOrchestrator *g_orchestrator = NULL;
@@ -83,7 +82,7 @@ static DataOrchestrator *g_orchestrator = NULL;
 #define BATCH_DELAY_SECONDS 30  // Wait 30 seconds to batch updates (menu can be slow)
 
 // Forward declaration  
-static void update_eink_display_batched(DataOrchestrator *orch, time_t date);
+static void update_eink_display_batched(DataOrchestrator *orch);
 
 // Utility function to check if two timestamps are in the same hour
 static int same_hour(time_t time1, time_t time2) {
@@ -99,7 +98,7 @@ static int same_hour(time_t time1, time_t time2) {
 }
 
 // Centralized function to update e-ink display based on batched changes
-static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
+static void update_eink_display_batched(DataOrchestrator *orch) {
     if (orch->debug) return;  // Only in production mode
     
     // Check if any data has changed
@@ -170,7 +169,7 @@ static void update_eink_display_batched(DataOrchestrator *orch, time_t date) {
 }
 
 // Schedule a batched display update with delay to collect multiple changes
-static void schedule_batched_display_update(DataOrchestrator *orch, time_t date __attribute__((unused))) {
+static void schedule_batched_display_update(DataOrchestrator *orch) {
     if (orch->debug) return;  // Only in production mode
     
     time_t now = time(NULL);
@@ -192,7 +191,7 @@ static void check_and_perform_batched_update(DataOrchestrator *orch, time_t date
     time_t now = time(NULL);
     // Check if enough time has passed since the last change
     if (now - orch->status.last_change_time >= BATCH_DELAY_SECONDS) {
-        update_eink_display_batched(orch, date);
+        update_eink_display_batched(orch);
     }
 }
 
@@ -415,7 +414,7 @@ void update_weather(DataOrchestrator *orch) {
     
     // Schedule batched display update if weather changed
     if (orch->status.weather_changed) {
-        schedule_batched_display_update(orch, now);
+        schedule_batched_display_update(orch);
     }
 }
 
@@ -461,7 +460,7 @@ void update_menu(DataOrchestrator *orch, time_t date) {
     
     // Schedule batched display update if menu changed
     if (orch->status.menu_changed) {
-        schedule_batched_display_update(orch, date);
+        schedule_batched_display_update(orch);
     }
 }
 
@@ -512,7 +511,7 @@ void update_calendar(DataOrchestrator *orch, time_t date) {
     
     // Schedule batched display update if calendar changed
     if (orch->status.calendar_changed) {
-        schedule_batched_display_update(orch, date);
+        schedule_batched_display_update(orch);
     }
 }
 
@@ -531,13 +530,13 @@ void check_and_handle_retries(DataOrchestrator *orch, time_t date) {
     // Check menu retry
     if (orch->status.menu_retry_time > 0 && now >= orch->status.menu_retry_time) {
         LOG_DEBUG("🔄 Attempting menu data retry...");
-        update_menu(orch, date);
+        update_menu(orch, now);
     }
     
     // Check calendar retry
     if (orch->status.calendar_retry_time > 0 && now >= orch->status.calendar_retry_time) {
         LOG_DEBUG("🔄 Attempting calendar data retry...");
-        update_calendar(orch, date);
+        update_calendar(orch, now);
     }
 }
 
@@ -666,7 +665,8 @@ void* menu_updater(void *arg) {
         }
         
         if (orch->running) {
-            update_menu(orch, orch->date);
+            time_t current_date = time(NULL);
+            update_menu(orch, current_date);
         }
     }
     
@@ -708,7 +708,8 @@ void* calendar_updater(void *arg) {
         }
         
         if (orch->running) {
-            update_calendar(orch, orch->date);
+            time_t current_date = time(NULL);
+            update_calendar(orch, current_date);
         }
     }
     
@@ -730,16 +731,13 @@ int orchestrator_start(DataOrchestrator *orch, time_t date) {
     LOG_DEBUG("📅 Calendar: updates hourly at XX:%02d:%02d", CALENDAR_UPDATE_MIN, CALENDAR_UPDATE_SEC);
     LOG_DEBUG("=====================================");
     
-    // Store date for threads
-    orch->date = date;
-    
     // Initial data update
     update_weather(orch);
     update_menu(orch, date);
     update_calendar(orch, date);
     
     // Perform batched display update after all initial updates
-    update_eink_display_batched(orch, date);
+    update_eink_display_batched(orch);
     
     // Start threads with error checking
     if (pthread_create(&orch->clock_thread, NULL, clock_updater, orch) != 0) {
