@@ -107,18 +107,9 @@ static void update_eink_display_batched(DataOrchestrator *orch) {
         return;  // No changes, no need to refresh
     }
     
-    // Determine refresh type based on what data changed
-    RefreshType refresh_type = REFRESH_FULL; // Default to full refresh
-    
-    if (orch->status.weather_changed && !orch->status.menu_changed && !orch->status.calendar_changed) {
-        // Only weather changed - use fast refresh for quicker updates
-        refresh_type = REFRESH_FAST;
-        LOG_DEBUG("Using fast refresh (weather-only update)");
-    } else {
-        // Menu or calendar changed, or multiple changes - use full refresh for best quality
-        refresh_type = REFRESH_FULL;
-        LOG_DEBUG("Using full refresh (menu/calendar/multiple updates)");
-    }
+    // Always use full refresh to prevent ghosting and maintain display quality
+    RefreshType refresh_type = REFRESH_FULL;
+    LOG_DEBUG("Using full refresh (prevents ghosting and maintains display quality)");
     
     // Build update type description
     char update_type[64] = "";
