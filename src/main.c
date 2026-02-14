@@ -555,13 +555,15 @@ void* clock_updater(void *arg) {
         }
         
         if (orch->running) {
-            // Use partial refresh for time updates - based on working display_time_test.c
+            // Use partial refresh for time updates - TEMPORARILY DISABLED to test grey display issue
             if (!orch->debug) {
-                if (refresh_time_partial() == 0) {
-                    LOG_DEBUG("⏰ Time display updated via partial refresh: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
-                } else {
-                    LOG_ERROR("❌ Failed to update time display via partial refresh");
-                }
+                // DISABLED: partial time updates might be causing display conflicts
+                // if (refresh_time_partial() == 0) {
+                //     LOG_DEBUG("⏰ Time display updated via partial refresh: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
+                // } else {
+                //     LOG_ERROR("❌ Failed to update time display via partial refresh");
+                // }
+                LOG_DEBUG("⏰ Time updates disabled for testing: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
             } else {
                 LOG_DEBUG("⏰ Clock updated: %02d:%02d", tm_now->tm_hour, tm_now->tm_min);
             }

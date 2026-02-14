@@ -481,8 +481,8 @@ int init_eink_hardware(void) {
         return -1;
     }
     
-    // Clear display to ensure known state - COMMENTED OUT to fix grey display issue
-    // EPD_7IN5_V2_Clear();
+    // Clear display to ensure known state
+    EPD_7IN5_V2_Clear();
     
     eink_hardware_initialized = 1;
     current_eink_mode = EINK_MODE_FULL; // Track that we're in full mode after Init()
