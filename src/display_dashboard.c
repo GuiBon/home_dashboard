@@ -481,8 +481,8 @@ int init_eink_hardware(void) {
         return -1;
     }
     
-    // Clear display to ensure known state
-    EPD_7IN5_V2_Clear();
+    // Clear display to ensure known state - COMMENTED OUT to fix grey display issue
+    // EPD_7IN5_V2_Clear();
     
     eink_hardware_initialized = 1;
     current_eink_mode = EINK_MODE_FULL; // Track that we're in full mode after Init()
@@ -569,6 +569,9 @@ int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType 
         // For full and fast refresh, use standard display method
         EPD_7IN5_V2_Display(BlackImage);
     }
+
+    // Add delay to let e-ink display settle and prevent refresh conflicts
+    DEV_Delay_ms(200);
     
     // Cleanup
     free(BlackImage);
