@@ -522,12 +522,10 @@ int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType 
     const char *refresh_names[] = {"full", "fast", "partial"};
     LOG_INFO("🖥️  Displaying image on e-ink (%s refresh): %s", refresh_names[refresh_type], image_path);
     
-    // Ensure hardware is initialized (skip if already initialized to prevent conflicts)
-    if (!eink_hardware_initialized) {
-        if (init_eink_hardware() != 0) {
-            LOG_ERROR("❌ Failed to initialize e-ink hardware");
-            return -1;
-        }
+    // Ensure hardware is initialized
+    if (init_eink_hardware() != 0) {
+        LOG_ERROR("❌ Failed to initialize e-ink hardware");
+        return -1;
     }
     
     // Validate file format
@@ -564,17 +562,13 @@ int display_image_on_eink_with_refresh_type(const char *image_path, RefreshType 
     // Display on e-ink using appropriate method
     LOG_INFO("🖥️  Sending image to e-ink display (%s refresh)...", refresh_names[refresh_type]);
     
-    // FORCE full refresh only - bypass partial/fast logic to fix grey display issue
     if (refresh_type == REFRESH_PARTIAL) {
         // For partial refresh, update entire screen (could be optimized to update specific regions)
         EPD_7IN5_V2_Display_Part(BlackImage, 0, 0, EPD_7IN5_V2_WIDTH, EPD_7IN5_V2_HEIGHT);
     } else {
-        // Always use full refresh display method regardless of refresh_type
+        // For full and fast refresh, use standard display method
         EPD_7IN5_V2_Display(BlackImage);
     }
-
-    // Add delay to let e-ink display settle and prevent refresh conflicts
-    DEV_Delay_ms(200);
     
     // Cleanup
     free(BlackImage);
