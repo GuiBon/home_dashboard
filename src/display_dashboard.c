@@ -496,7 +496,11 @@ int init_eink_hardware(void) {
 void cleanup_eink_hardware(void) {
     if (eink_hardware_initialized) {
         LOG_INFO("🧹 Cleaning up e-ink hardware...");
-        
+
+        // Clear display before sleep to prevent burn-in during long shutdown periods
+        EPD_7IN5_V2_Clear();
+        DEV_Delay_ms(1000);  // Allow clear operation to complete
+
         // Put display to sleep
         EPD_7IN5_V2_Sleep();
         
